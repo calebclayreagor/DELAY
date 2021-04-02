@@ -204,7 +204,6 @@ class ConvNet(torch.nn.Module):
         self.block1_branch4_1x1_self = torch.nn.Sequential(
         torch.nn.Conv2d(1, 1, kernel_size=(1,1)), torch.nn.ReLU())
 
-
         # ---------
         # block #2
         # ---------
@@ -239,9 +238,9 @@ class ConvNet(torch.nn.Module):
         self.block3_branch4_1x1_reduce = torch.nn.Sequential(
         torch.nn.Conv2d((2*hidden_dim+2)*2, 1, kernel_size=(1,1)), torch.nn.ReLU())
 
-        # ---------
-        # 2d -> 1d
-        # ---------
+        # -------
+        # reduce
+        # -------
         self.final_conv_2x1_reduce = torch.nn.Sequential(
         torch.nn.Conv2d((2*hidden_dim+2)*3, (2*hidden_dim+2)*3, kernel_size=(2,1)), torch.nn.ReLU())
 
@@ -284,9 +283,9 @@ class ConvNet(torch.nn.Module):
         out3 = torch.cat([out31,out32,out33,out34], axis=1)
         out = torch.cat([out1,out2,out3], axis=1)
 
-        # ---------
-        # 2d -> 1d
-        # ---------
+        # -------
+        # reduce
+        # -------
         out = self.final_conv_2x1_reduce(out)
 
         # ---------------
