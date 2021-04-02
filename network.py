@@ -187,38 +187,118 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class ConvNet(torch.nn.Module):
-    def __init__(self, hidden_dim):
+    def __init__(self, hidden_dim, dropout):
         super(ConvNet, self).__init__()
 
-        self.branch1_1x3_2x1 = torch.nn.Sequential(
+        # ---------
+        # block #1
+        # ---------
+        self.block1_branch1_1x3_3x1 = torch.nn.Sequential(
         torch.nn.Conv2d(1, hidden_dim, padding=(0,1), kernel_size=(1,3)), torch.nn.ReLU(),
-        torch.nn.Conv2d(hidden_dim, hidden_dim, kernel_size=(2,1)), torch.nn.ReLU())
-
-        self.branch2_1x7_2x1 = torch.nn.Sequential(
+        torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), torch.nn.ReLU())
+        self.block1_branch2_1x7_3x1 = torch.nn.Sequential(
         torch.nn.Conv2d(1, hidden_dim, padding=(0,3), kernel_size=(1,7)), torch.nn.ReLU(),
-        torch.nn.Conv2d(hidden_dim, hidden_dim, kernel_size=(2,1)), torch.nn.ReLU())
+        torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), torch.nn.ReLU())
+        self.block1_branch3_maxpool = torch.nn.Sequential(
+        torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1)), torch.nn.ReLU())
+        self.block1_branch4_1x1_self = torch.nn.Sequential(
+        torch.nn.Conv2d(1, 1, kernel_size=(1,1)), torch.nn.ReLU())
 
-        self.final_conv_2x1 = torch.nn.Sequential(
-        torch.nn.Conv2d(hidden_dim, hidden_dim, kernel_size=(2,1)), torch.nn.ReLU())
 
-        self.dropout = torch.nn.Dropout(p=0.5)
-        self.fc = torch.nn.Linear(hidden_dim, 1)
+        # ---------
+        # block #2
+        # ---------
+        self.block2_branch1_1x1_1x3_3x1 = torch.nn.Sequential(
+        torch.nn.Conv2d(2*hidden_dim+2, 1, kernel_size=(1,1)), torch.nn.ReLU(),
+        torch.nn.Conv2d(1, hidden_dim, padding=(0,1), kernel_size=(1,3)), torch.nn.ReLU(),
+        torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), torch.nn.ReLU())
+        self.block2_branch2_1x1_1x7_3x1 = torch.nn.Sequential(
+        torch.nn.Conv2d(2*hidden_dim+2, 1, kernel_size=(1,1)), torch.nn.ReLU(),
+        torch.nn.Conv2d(1, hidden_dim, padding=(0,3), kernel_size=(1,7)), torch.nn.ReLU(),
+        torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), torch.nn.ReLU())
+        self.block2_branch3_maxpool_1x1 = torch.nn.Sequential(
+        torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1)), torch.nn.ReLU(),
+        torch.nn.Conv2d(2*hidden_dim+2, 1, kernel_size=(1,1)), torch.nn.ReLU())
+        self.block2_branch4_1x1_reduce = torch.nn.Sequential(
+        torch.nn.Conv2d(2*hidden_dim+2, 1, kernel_size=(1,1)), torch.nn.ReLU())
 
+        # ---------
+        # block #3
+        # ---------
+        self.block3_branch1_1x1_1x3_3x1 = torch.nn.Sequential(
+        torch.nn.Conv2d((2*hidden_dim+2)*2, 1, kernel_size=(1,1)), torch.nn.ReLU(),
+        torch.nn.Conv2d(1, hidden_dim, padding=(0,1), kernel_size=(1,3)), torch.nn.ReLU(),
+        torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), torch.nn.ReLU())
+        self.block3_branch2_1x1_1x7_3x1 = torch.nn.Sequential(
+        torch.nn.Conv2d((2*hidden_dim+2)*2, 1, kernel_size=(1,1)), torch.nn.ReLU(),
+        torch.nn.Conv2d(1, hidden_dim, padding=(0,3), kernel_size=(1,7)), torch.nn.ReLU(),
+        torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), torch.nn.ReLU())
+        self.block3_branch3_maxpool_1x1 = torch.nn.Sequential(
+        torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1)), torch.nn.ReLU(),
+        torch.nn.Conv2d((2*hidden_dim+2)*2, 1, kernel_size=(1,1)), torch.nn.ReLU())
+        self.block3_branch4_1x1_reduce = torch.nn.Sequential(
+        torch.nn.Conv2d((2*hidden_dim+2)*2, 1, kernel_size=(1,1)), torch.nn.ReLU())
+
+        # ---------
+        # 2d -> 1d
+        # ---------
+        self.final_conv_2x1_reduce = torch.nn.Sequential(
+        torch.nn.Conv2d((2*hidden_dim+2)*3, (2*hidden_dim+2)*3, kernel_size=(2,1)), torch.nn.ReLU())
+
+        # ---------
+        # FC layer
+        # ---------
+        self.dropout = torch.nn.Dropout(p=dropout)
+        self.fc = torch.nn.Linear((2*hidden_dim+2)*3, 1)
+
+    # ---------
+    # forward
+    # ---------
     def forward(self, x):
-        # branched convolutional block
-        out1 = self.branch1_1x3_2x1(x)
-        out2 = self.branch2_1x7_2x1(x)
-        out = torch.cat([out1, out2], axis=2)
+        # ---------
+        # block #1
+        # ---------
+        out11 = self.block1_branch1_1x3_3x1(x)
+        out12 = self.block1_branch2_1x7_3x1(x)
+        out13 = self.block1_branch3_maxpool(x)
+        out14 = self.block1_branch4_1x1_self(x)
+        out1 = torch.cat([out11,out12,out13,out14], axis=1)
 
-        # channel-reduction convolution
-        out = self.final_conv_2x1(out)
+        # ---------
+        # block #2
+        # ---------
+        out21 = self.block2_branch1_1x1_1x3_3x1(out1)
+        out22 = self.block2_branch2_1x1_1x7_3x1(out1)
+        out23 = self.block2_branch3_maxpool_1x1(out1)
+        out24 = self.block2_branch4_1x1_reduce(out1)
+        out2 = torch.cat([out21,out22,out23,out24], axis=1)
+        out = torch.cat([out1, out2], axis=1)
 
-        # global average pooling
+        # ---------
+        # block #3
+        # ---------
+        out31 = self.block3_branch1_1x1_1x3_3x1(out)
+        out32 = self.block3_branch2_1x1_1x7_3x1(out)
+        out33 = self.block3_branch3_maxpool_1x1(out)
+        out34 = self.block3_branch4_1x1_reduce(out)
+        out3 = torch.cat([out31,out32,out33,out34], axis=1)
+        out = torch.cat([out1,out2,out3], axis=1)
+
+        # ---------
+        # 2d -> 1d
+        # ---------
+        out = self.final_conv_2x1_reduce(out)
+
+        # ---------------
+        # global pooling
+        # ---------------
         out = torch.squeeze(
         F.avg_pool1d(torch.squeeze(out),
         kernel_size=out.size()[-1]))
 
-        # dropout & fully-connected
+        # ---------
+        # FC layer
+        # ---------
         out = self.dropout(out)
         return self.fc(out)
 
@@ -233,28 +313,38 @@ class Classifier(pl.LightningModule):
         self.val_names = val_names
         self.test_names = test_names
 
-        # containers for summary metrics over individual validation, testing datasets
+        # ------------------------
+        # precision-recall curves
+        # ------------------------
         self.val_prc = torch.nn.ModuleList([PRCurve(pos_label=1) for x in self.val_names])
         self.test_prc = torch.nn.ModuleList([PRCurve(pos_label=1) for x in self.test_names])
 
-
+    # -------------------------
+    # optimizer & LR scheduler
+    # -------------------------
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr_init)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.hparams.lr_step)
         return [optimizer], [scheduler]
 
-
+    # --------------------
+    # weighted focal loss
+    # --------------------
     def focal_loss(self, output, labels):
         """Compute weighted focal loss with given alpha, gamma hyperparameters"""
         at = (labels * self.hparams.alpha) + ((1 - labels) * (1 - self.hparams.alpha))
         logpt = -F.binary_cross_entropy_with_logits(output, labels, reduction='none')
         return -at * (1 - logpt.exp()) ** self.hparams.gamma * logpt
 
-
+    # --------
+    # forward
+    # --------
     def forward(self, x):
         return self.backbone(x)
 
-
+    # --------------
+    # training step
+    # --------------
     def training_step(self, train_batch, batch_idx):
         """Optimize using summed losses over batch"""
         X, y = train_batch
@@ -262,6 +352,9 @@ class Classifier(pl.LightningModule):
         loss = self.focal_loss(out, y)
         loss_sum = loss.sum()
 
+        # ------------
+        # update logs
+        # ------------
         self.log('train_loss',
                  loss_sum,
                  on_step=False,
@@ -270,7 +363,9 @@ class Classifier(pl.LightningModule):
 
         return loss_sum
 
-
+    # ----------------
+    # validation step
+    # ----------------
     def validation_step(self, val_batch, batch_idx, dataset_idx) -> None:
         X, y = val_batch
         out = self.forward(X)
@@ -278,9 +373,14 @@ class Classifier(pl.LightningModule):
         loss_sum = loss.sum()
         pred = torch.sigmoid(out)
 
-        # update PR curve for dataset
+        # ----------------
+        # update PR curve
+        # ----------------
         self.val_prc[dataset_idx](pred, y)
 
+        # ------------
+        # update logs
+        # ------------
         self.log('val_loss',
                  loss_sum,
                  on_step=False,
@@ -288,7 +388,9 @@ class Classifier(pl.LightningModule):
                  sync_dist=True,
                  add_dataloader_idx=False)
 
-
+    # ---------------------
+    # validation epoch end
+    # ---------------------
     def on_validation_epoch_end(self):
         """Compute AUPRC summary metric for each dataset"""
         # NOTE: currently, AUPRC averaged across processes
@@ -301,7 +403,9 @@ class Classifier(pl.LightningModule):
                      sync_dist=True, add_dataloader_idx=False)
             self.val_prc[idx].reset()
 
-
+    # ----------
+    # test step
+    # ----------
     def test_step(self, test_batch, batch_idx, dataset_idx) -> None:
         X, y = test_batch
         out = self.forward(X)
@@ -309,9 +413,14 @@ class Classifier(pl.LightningModule):
         loss_sum = loss.sum()
         pred = torch.sigmoid(out)
 
-        # update PR curve for dataset
+        # ----------------
+        # update PR curve
+        # ----------------
         self.test_prc[dataset_idx](pred, y)
 
+        # ------------
+        # update logs
+        # ------------
         self.log('test_loss',
                  loss_sum,
                  on_step=False,
@@ -319,7 +428,9 @@ class Classifier(pl.LightningModule):
                  sync_dist=True,
                  add_dataloader_idx=False)
 
-
+    # ---------------
+    # test epoch end
+    # ---------------
     def on_test_epoch_end(self):
         """Compute AUPRC summary metric for each dataset"""
         # NOTE: currently, AUPRC averaged across processes
@@ -338,9 +449,9 @@ class Classifier(pl.LightningModule):
 # main script
 # ----------
 if __name__ == '__main__':
-    # ----------
+    # -----
     # seed
-    # ----------
+    # -----
     pl.seed_everything(1234)
 
     # ----------
@@ -365,20 +476,21 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=2.0)
     parser.add_argument('--alpha', type=float, default=0.975)
     parser.add_argument('--hidden_dim', type=int, default=32)
+    parser.add_argument('--dropout', type=float, default=0.5)
     parser.add_argument('--num_workers', type=int, default=36)
     parser.add_argument('--num_gpus', type=int, default=2)
     args = parser.parse_args()
 
-    # ----------
+    # -------------------
     # datasets & loaders
-    # ----------
-    # training dataset -> loader
+    # -------------------
+    # training dataset & loader
     print('Loading training batches...')
-    training = Dataset(root_dir=f'{args.dataset_dir}/training', rel_path='*/*/*/*/ExpressionData.csv',
+    training = Dataset(root_dir=f'{args.dataset_dir}/training_tune', rel_path='*/*/*/*/ExpressionData.csv',
                        batchSize=args.batch_size, overwrite=args.ovr_train, load_prev=args.load_prev)
     train_loader = DataLoader(training, batch_size=None, shuffle=True, num_workers=args.num_workers)
 
-    # validation datasets -> loader
+    # validation datasets...
     validation, val_names = [], []
     print('Loading validation datasets...')
     for item in tqdm(sorted(glob.glob(f'{args.dataset_dir}/validation/*/*/*'))):
@@ -386,12 +498,12 @@ if __name__ == '__main__':
             val_names.append('val_'+'_'.join(item.split('/')[-2:]))
             validation.append(Dataset(root_dir=item, rel_path='*/ExpressionData.csv',
             batchSize=args.batch_size, overwrite=args.ovr_val, load_prev=args.load_prev))
-
+    # ...and loader
     val_loader = [None] * len(validation)
     for i in range(len(validation)):
         val_loader[i] = DataLoader(validation[i], batch_size=None, num_workers=args.num_workers)
 
-    # testing datasets -> loader
+    # testing datasets...
     testing, test_names = [], []
     print('Loading testing datasets...')
     for item in tqdm(sorted(glob.glob(f'{args.dataset_dir}/testing/*/*/*'))):
@@ -399,25 +511,26 @@ if __name__ == '__main__':
             test_names.append('test_'+'_'.join(item.split('/')[-2:]))
             testing.append(Dataset(root_dir=item, rel_path='*/ExpressionData.csv',
             batchSize=args.batch_size, overwrite=args.ovr_val, load_prev=args.load_prev))
-
+    # ...and loader
     test_loader = [None] * len(testing)
     for i in range(len(testing)):
         test_loader[i] = DataLoader(testing[i], batch_size=None, num_workers=args.num_workers)
 
-    # ----------
+    # -------
     # logger
-    # ----------
+    # -------
     logger = TensorBoardLogger('lightning_logs', name=args.output_dir)
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
-    # ----------
+    # ------
     # model
-    # ----------
-    model = Classifier(args, ConvNet(args.hidden_dim), val_names, test_names)
+    # ------
+    backbone = ConvNet(args.hidden_dim, args.dropout)
+    model = Classifier(args, backbone, val_names, test_names)
 
-    # ----------
+    # ---------
     # training
-    # ----------
+    # ---------
     trainer = pl.Trainer(max_epochs=args.max_epochs,
                          accelerator='ddp', gpus=args.num_gpus,
                          logger=logger, callbacks=[lr_monitor],
@@ -425,12 +538,12 @@ if __name__ == '__main__':
                          plugins=DDPPlugin(find_unused_parameters=False))
     trainer.fit(model, train_loader, val_loader)
 
-    # ----------
+    # --------
     # testing
-    # ----------
+    # --------
     trainer.test(test_dataloaders=test_loader)
 
-    # ----------
+    # -------
     # saving
-    # ----------
+    # -------
     #torch.save(model.backbone.state_dict(), )
