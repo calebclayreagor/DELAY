@@ -11,6 +11,7 @@ import glob, pathlib
 import shutil
 import random, math
 import itertools
+import math
 
 from torch.utils.data                          import DataLoader
 from pytorch_lightning.loggers                 import TensorBoardLogger
@@ -35,22 +36,20 @@ class Dataset(torch.utils.data.Dataset):
         self.min_cells = minCells
 
         if self.load_prev==True:
-            # ----------------------------------
-            # get batch pathnames (X, y, y_aux)
-            # ----------------------------------
+            # ---------------------------
+            # get batch pathnames (X, y)
+            # ---------------------------
             prev_path = '/'.join(self.rel_path.split('/')[:-1])+'*/'
             self.X_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'X_*.npy'))]
             self.y_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'y_b*.npy'))]
-            self.y_aux_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'y_a*.npy'))]
 
         else:
-            # -----------------------------------------------------
-            # generate batch(es) for each trajectory (X, y, y_aux)
-            # -----------------------------------------------------
+            # ----------------------------------------------
+            # generate batch(es) for each trajectory (X, y)
+            # ----------------------------------------------
             self.sce_fnames = sorted(pathlib.Path(self.root_dir).glob(self.rel_path))
             self.X_fnames = [None] * len(self.sce_fnames)
             self.y_fnames = [None] * len(self.sce_fnames)
-            self.y_aux_fnames = [None] * len(self.sce_fnames)
             for sce_fname in (tqdm(self.sce_fnames) if verbose else self.sce_fnames):
                 self.generate_batches(str(sce_fname))
 
@@ -68,10 +67,9 @@ class Dataset(torch.utils.data.Dataset):
             fname = self.X_fnames[idx_]
             X = np.load(self.X_fnames[idx_], allow_pickle=True)
             y = np.load(self.y_fnames[idx_], allow_pickle=True)
-            y_aux = np.load(self.y_aux_fnames[idx_], allow_pickle=True)
-            if X.shape[3] > self.min_cells: new_batch = False
+            if X.shape[3] > self.min_cells : new_batch = False
             idx_ = np.random.choice(np.arange(len(self.X_fnames)))
-        return X, y, y_aux, fname
+        return X, y, fname
 
 
     def seed_from_string(self, s):
@@ -95,6 +93,7 @@ class Dataset(torch.utils.data.Dataset):
             i_ = int(round(np.clip(i+j, 0, pt.size-1)))
             pt[[i,i_]] = pt[[i_,i]]
         return pt
+
 
     def max_cross_correlation(self, a, v, mode='same'):
         return abs(np.correlate(a, v, mode)).max()
@@ -124,14 +123,6 @@ class Dataset(torch.utils.data.Dataset):
                         else:
                             self.X_fnames.extend([file])
 
-                    # save batch filename for y_aux = bool(is TF?)
-                    elif file.split('/')[-1][:5]=='y_aux':
-                        idx = np.where(np.array(self.y_aux_fnames) == None)[0]
-                        if idx.size > 0:
-                            self.y_aux_fnames[idx[0]] = file
-                        else:
-                            self.y_aux_fnames.extend([file])
-
                     # save batch filename for regulation labels y
                     elif file.split('/')[-1][0]=='y':
                         idx = np.where(np.array(self.y_fnames) == None)[0]
@@ -145,10 +136,17 @@ class Dataset(torch.utils.data.Dataset):
                     shutil.rmtree(traj_folder)
                 os.mkdir(traj_folder)
 
+                # print message if generating batches for experimental dataset
+                if sce_folder.split('/')[-4]=='experimental':
+                    print(f"Generating batches for {'/'.join(sce_folder.split('/')[-2:])}...")
+
                 if sce is not None: pass
                 else:
                     # load single cell experiment data from file
                     sce = pd.read_csv(sce_fname, index_col=0).T
+
+                    # lowercase gene names
+                    sce.columns = sce.columns.str.lower()
 
                     # sort expression in experiment using slingshot pseudotime
                     sce = sce.loc[pt.sum(axis=1).sort_values().index,:].copy()
@@ -158,24 +156,30 @@ class Dataset(torch.utils.data.Dataset):
                         seed = self.seed_from_string(traj_folder)
                         sce = sce.loc[self.shuffle_pt(sce.index, seed),:].copy()
 
+                    # per gene normalization to 95th percentile
+                    for col in sce.columns:
+                        sce[col] /= np.quantile(sce[col], 0.95)
+
                 # trajectory pairwise gene correlations: max absolute cross correlation
                 traj_idx = np.where(~pt.iloc[:,k].isnull())[0]
                 if traj_idx.size >= self.min_cells:
                     traj_pcorr = sce.iloc[traj_idx,:].corr(self.max_cross_correlation)
                 else: traj_pcorr = sce.corr(self.max_cross_correlation)
 
-                # generate list of tuples containing all possible gene pairs + context
-                gpairs = [tuple(list(g)+list(traj_pcorr.loc[g[1],~traj_pcorr.index.isin(g)].nlargest(self.context_dims).index)) for g in itertools.product(sce.columns, repeat=2)]
-                seed = self.seed_from_string(traj_folder); random.seed(seed); random.shuffle(gpairs)
-
-                n, n_cells = len(gpairs), sce.shape[0]
-
                 if ref is not None: pass
                 else:
                     # load gene regulation labels from reference file
                     ref = pd.read_csv(f"{sce_folder}/refNetwork.csv")
-                    g1, g2 = ref['Gene1'].values, ref['Gene2'].values
+                    g1 = [g.lower() for g in ref['Gene1'].values]
+                    g2 = [g.lower() for g in ref['Gene2'].values]
                     ref_1d = np.array(["%s %s" % x for x in list(zip(g1,g2))])
+
+                # generate list of tuples containing all possible gene pairs + context (edges from tfs only)
+                gpairs = [tuple(list(g)+list(traj_pcorr.loc[g[1],~traj_pcorr.index.isin(g)].nlargest(self.context_dims).index)) \
+                                                                                for g in itertools.product(set(g1), sce.columns)]
+                seed = self.seed_from_string(traj_folder); random.seed(seed); random.shuffle(gpairs)
+
+                n, n_cells = len(gpairs), sce.shape[0]
 
                 # split gene pairs + context into batches
                 if self.batch_size is not None:
@@ -183,15 +187,10 @@ class Dataset(torch.utils.data.Dataset):
                     gpairs_batched = [list(filter(None, x)) for x in gpairs_batched]
                 else: gpairs_batched = [gpairs]
 
-                # print message if generating batches for experimental dataset
-                if sce_folder.split('/')[-4]=='experimental':
-                    print(f"Generating batches for {'/'.join(sce_folder.split('/')[-2:])}")
-
                 # inner loop over batches of gene pairs
                 for j in range(len(gpairs_batched)):
                     X_fname = f"{traj_folder}/X_batch{j}_size{len(gpairs_batched[j])}.npy"
                     y_fname = f"{traj_folder}/y_batch{j}_size{len(gpairs_batched[j])}.npy"
-                    y_aux_fname = f"{traj_folder}/y_aux_batch{j}_size{len(gpairs_batched[j])}.npy"
 
                     # flatten gene pairs + context (list of tuples) to list
                     gpairs_list = list(itertools.chain(*gpairs_batched[j]))
@@ -210,294 +209,281 @@ class Dataset(torch.utils.data.Dataset):
                     gpairs_batched_1d = np.array(["%s %s" % x[:2] for x in gpairs_batched[j]])
                     y_batch = np.in1d(gpairs_batched_1d, ref_1d).reshape(X_batch.shape[0],1)
 
-                    # generate gene A transcription factor labels y_aux for mini-batch
-                    geneA_batched_1d = np.array([x[0] for x in gpairs_batched[j]])
-                    y_aux_batch = np.in1d(geneA_batched_1d, g1).reshape(X_batch.shape[0],1)
-
                     # select and sort cells in current trajectory
                     X_normalized = X_batch[...,traj_idx]
                     y_float = y_batch.astype(np.float32)
-                    y_aux_float = y_aux_batch.astype(np.float32)
-                    if X_normalized.shape[-1] > 0:
-                        X_normalized /= np.quantile(X_normalized, 0.95)
+                    # if X_normalized.shape[-1] > 0:
+                    #     X_normalized /= np.quantile(X_normalized, 0.95)
 
-                    # save X, y, y_aux to pickled numpy files
+                    # save X, y to pickled numpy files
                     np.save(X_fname, X_normalized, allow_pickle=True)
                     np.save(y_fname, y_float, allow_pickle=True)
-                    np.save(y_aux_fname, y_aux_float, allow_pickle=True)
 
                     # save batch filenames for __len__ and __getitem__
                     idx = np.where(np.array(self.X_fnames) == None)[0]
                     if idx.size > 0:
                         self.X_fnames[idx[0]] = X_fname
                         self.y_fnames[idx[0]] = y_fname
-                        self.y_aux_fnames[idx[0]] = y_aux_fname
                     else:
                         self.X_fnames.extend([X_fname])
                         self.y_fnames.extend([y_fname])
-                        self.y_aux_fnames.extend([y_aux_fname])
 
 
 class ConvNet(torch.nn.Module):
-    def __init__(self, hidden_dim, context_dims, pyramid_dims, dropout):
+    def __init__(self, hidden_dim, tf_heads, context_dims, pyramid_dims, dropout):
         super(ConvNet, self).__init__()
 
         Activation = torch.nn.ReLU
         self.pyrd = pyramid_dims
+        self.d_context = context_dims
+        self.d_hidden = hidden_dim
+        self.n_head = tf_heads
 
-        # ----------------
-        # dense block 1.1
-        # ----------------
+
+        def init_weights(m):
+            if type(m) in [torch.nn.Conv2d, torch.nn.Linear]:
+                torch.nn.init.xavier_normal_(m.weight)
+
+        # ---------------
+        # conv block 1.1
+        # ---------------
         self.block11_branch1_1x3_3x1 = torch.nn.Sequential(
-        torch.nn.Conv2d(1, hidden_dim, padding=(0,1), kernel_size=(1,3)), Activation(),
-        torch.nn.Conv2d(hidden_dim, hidden_dim, groups=hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
+        torch.nn.Conv2d(1, self.d_hidden, padding=(0,1), kernel_size=(1,3)), Activation(),
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, padding=(1,0), kernel_size=(3,1)), Activation(),)
+        self.block11_branch1_1x3_3x1.apply(init_weights)
         self.block11_branch2_1x7_3x1 = torch.nn.Sequential(
-        torch.nn.Conv2d(1, hidden_dim, padding=(0,3), kernel_size=(1,7)), Activation(),
-        torch.nn.Conv2d(hidden_dim, hidden_dim, groups=hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
-        self.block11_branch3_maxpool = torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1))
-        self.block11_branch4_1x1 = torch.nn.Sequential(
+        torch.nn.Conv2d(1, self.d_hidden, padding=(0,3), kernel_size=(1,7)), Activation(),
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, padding=(1,0), kernel_size=(3,1)), Activation())
+        self.block11_branch2_1x7_3x1.apply(init_weights)
+        self.block11_branch3_1x15_3x1 = torch.nn.Sequential(
+        torch.nn.Conv2d(1, self.d_hidden, padding=(0,7), kernel_size=(1,15)), Activation(),
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, padding=(1,0), kernel_size=(3,1)), Activation())
+        self.block11_branch3_1x15_3x1.apply(init_weights)
+        self.block11_branch4_maxpool = torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1))
+        self.block11_branch5_1x1 = torch.nn.Sequential(
         torch.nn.Conv2d(1, 1, kernel_size=(1,1)), Activation())
+        self.block11_branch5_1x1.apply(init_weights)
 
         # ---------------------
         # block 1.1 transition
         # ---------------------
         self.block11_transition_1x1 = torch.nn.Sequential(
-        torch.nn.BatchNorm2d(2*hidden_dim+2),
+        torch.nn.BatchNorm2d(3*self.d_hidden+2),
         torch.nn.Dropout2d(p=dropout),
-        torch.nn.Conv2d(2*hidden_dim+2, hidden_dim, kernel_size=(1,1)), Activation())
+        torch.nn.Conv2d(3*self.d_hidden+2, self.d_hidden, kernel_size=(1,1)), Activation())
+        self.block11_transition_1x1.apply(init_weights)
 
-        # ----------------
-        # dense block 1.2
-        # ----------------
+        # ---------------
+        # conv block 1.2
+        # ---------------
         self.block12_branch1_1x3_3x1 = torch.nn.Sequential(
-        torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(0,1), kernel_size=(1,3)), Activation(),
-        torch.nn.Conv2d(hidden_dim, hidden_dim, groups=hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, padding=(0,1), kernel_size=(1,3)), Activation(),
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, padding=(1,0), kernel_size=(3,1)), Activation())
+        self.block12_branch1_1x3_3x1.apply(init_weights)
         self.block12_branch2_1x7_3x1 = torch.nn.Sequential(
-        torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(0,3), kernel_size=(1,7)), Activation(),
-        torch.nn.Conv2d(hidden_dim, hidden_dim, groups=hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
-        self.block12_branch3_maxpool = torch.nn.Sequential(
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, padding=(0,3), kernel_size=(1,7)), Activation(),
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, padding=(1,0), kernel_size=(3,1)), Activation())
+        self.block12_branch2_1x7_3x1.apply(init_weights)
+        self.block12_branch3_1x15_3x1 = torch.nn.Sequential(
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, padding=(0,7), kernel_size=(1,15)), Activation(),
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, padding=(1,0), kernel_size=(3,1)), Activation())
+        self.block12_branch3_1x15_3x1.apply(init_weights)
+        self.block12_branch4_maxpool = torch.nn.Sequential(
         torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1)),
-        torch.nn.Conv2d(hidden_dim, 1, kernel_size=(1,1)), Activation())
-        self.block12_branch4_1x1 = torch.nn.Sequential(
-        torch.nn.Conv2d(hidden_dim, 1, kernel_size=(1,1)), Activation())
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, groups=self.d_hidden, kernel_size=(1,1)), Activation())
+        self.block12_branch4_maxpool.apply(init_weights)
+        self.block12_branch5_1x1 = torch.nn.Sequential(
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, groups=self.d_hidden, kernel_size=(1,1)), Activation())
+        self.block12_branch5_1x1.apply(init_weights)
 
         # ---------------------
         # block 1.2 transition
         # ---------------------
         self.block12_transition_1x1 = torch.nn.Sequential(
-        torch.nn.BatchNorm2d(2*hidden_dim+2),
+        torch.nn.BatchNorm2d(5*self.d_hidden),
         torch.nn.Dropout2d(p=dropout),
-        torch.nn.Conv2d(2*hidden_dim+2, hidden_dim, kernel_size=(1,1)), Activation())
+        torch.nn.Conv2d(5*self.d_hidden, self.d_hidden, kernel_size=(1,1)), Activation())
+        self.block12_transition_1x1.apply(init_weights)
 
-        # ----------------
-        # dense block 1.3
-        # ----------------
-        self.block13_branch1_1x3_3x1 = torch.nn.Sequential(
-        torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(0,1), kernel_size=(1,3)), Activation(),
-        torch.nn.Conv2d(hidden_dim, hidden_dim, groups=hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
-        self.block13_branch2_1x7_3x1 = torch.nn.Sequential(
-        torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(0,3), kernel_size=(1,7)), Activation(),
-        torch.nn.Conv2d(hidden_dim, hidden_dim, groups=hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
-        self.block13_branch3_maxpool = torch.nn.Sequential(
+        # ---------------------------
+        # block 1.3 positional encoder
+        # ---------------------------
+        self.block13_pos_encoder = PositionalEncoding((2+self.d_context)*self.d_hidden, dropout=dropout)
+
+        # ------------------------------
+        # block 1.3 transformer encoder
+        # ------------------------------
+        encoder_layers = torch.nn.TransformerEncoderLayer(d_model=(2+self.d_context)*self.d_hidden,
+                                                          nhead=self.n_head,
+                                                          dim_feedforward=self.d_hidden,
+                                                          dropout=dropout)
+        self.block13_branch1_tf_attn3 = torch.nn.TransformerEncoder(encoder_layers, num_layers=1)
+        self.block13_branch1_tf_attn3.apply(init_weights)
+        self.block13_branch2_tf_attn7 = torch.nn.TransformerEncoder(encoder_layers, num_layers=1)
+        self.block13_branch2_tf_attn7.apply(init_weights)
+        self.block13_branch3_tf_attn15 = torch.nn.TransformerEncoder(encoder_layers, num_layers=1)
+        self.block13_branch3_tf_attn15.apply(init_weights)
+        self.block13_branch4_maxpool = torch.nn.Sequential(
         torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1)),
-        torch.nn.Conv2d(hidden_dim, 1, kernel_size=(1,1)), Activation())
-        self.block13_branch4_1x1 = torch.nn.Sequential(
-        torch.nn.Conv2d(hidden_dim, 1, kernel_size=(1,1)), Activation())
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, groups=self.d_hidden, kernel_size=(1,1)), Activation())
+        self.block13_branch4_maxpool.apply(init_weights)
+        self.block13_branch5_1x1 = torch.nn.Sequential(
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, groups=self.d_hidden, kernel_size=(1,1)), Activation())
+        self.block13_branch5_1x1.apply(init_weights)
 
-        # # -----------------------
-        # # dense block transition
-        # # -----------------------
-        # self.dense_transition_layer_1x1_reduce = torch.nn.Sequential(
-        # torch.nn.Conv2d((2*hidden_dim+2)*3, 1,  kernel_size=(1,1)), Activation(),
-        # torch.nn.MaxPool2d(kernel_size=(1,2), stride=(1,2)))
-
-        # # ----------------
-        # # dense block 2.1
-        # # ----------------
-        # self.block21_branch1_1x3_3x1 = torch.nn.Sequential(
-        # torch.nn.Conv2d(1, hidden_dim, padding=(0,1), kernel_size=(1,3)), Activation(),
-        # torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
-        # self.block21_branch2_1x7_3x1 = torch.nn.Sequential(
-        # torch.nn.Conv2d(1, hidden_dim, padding=(0,3), kernel_size=(1,7)), Activation(),
-        # torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
-        # self.block21_branch3_maxpool = torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1))
-        # self.block21_branch4_1x1_self = torch.nn.Sequential(
-        # torch.nn.Conv2d(1, 1, kernel_size=(1,1)), Activation())
-
-        # # ----------------
-        # # dense block 2.2
-        # # ----------------
-        # self.block22_branch1_1x1_1x3_3x1 = torch.nn.Sequential(
-        # torch.nn.Conv2d((2*hidden_dim+2), 1, kernel_size=(1,1)), Activation(),
-        # torch.nn.Conv2d(1, hidden_dim, padding=(0,1), kernel_size=(1,3)), Activation(),
-        # torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
-        # self.block22_branch2_1x1_1x7_3x1 = torch.nn.Sequential(
-        # torch.nn.Conv2d((2*hidden_dim+2), 1, kernel_size=(1,1)), Activation(),
-        # torch.nn.Conv2d(1, hidden_dim, padding=(0,3), kernel_size=(1,7)), Activation(),
-        # torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
-        # self.block22_branch3_maxpool_1x1 = torch.nn.Sequential(
-        # torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1)),
-        # torch.nn.Conv2d((2*hidden_dim+2), 1, kernel_size=(1,1)), Activation())
-        # self.block22_branch4_1x1_reduce = torch.nn.Sequential(
-        # torch.nn.Conv2d((2*hidden_dim+2), 1, kernel_size=(1,1)), Activation())
-
-        # # ----------------
-        # # dense block 2.3
-        # # ----------------
-        # self.block23_branch1_1x1_1x3_3x1 = torch.nn.Sequential(
-        # torch.nn.Conv2d((2*hidden_dim+2)*2, 1, kernel_size=(1,1)), Activation(),
-        # torch.nn.Conv2d(1, hidden_dim, padding=(0,1), kernel_size=(1,3)), Activation(),
-        # torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
-        # self.block23_branch2_1x1_1x7_3x1 = torch.nn.Sequential(
-        # torch.nn.Conv2d((2*hidden_dim+2)*2, 1, kernel_size=(1,1)), Activation(),
-        # torch.nn.Conv2d(1, hidden_dim, padding=(0,3), kernel_size=(1,7)), Activation(),
-        # torch.nn.Conv2d(hidden_dim, hidden_dim, padding=(1,0), kernel_size=(3,1)), Activation())
-        # self.block23_branch3_maxpool_1x1 = torch.nn.Sequential(
-        # torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1)),
-        # torch.nn.Conv2d((2*hidden_dim+2)*2, 1, kernel_size=(1,1)), Activation())
-        # self.block23_branch4_1x1_reduce = torch.nn.Sequential(
-        # torch.nn.Conv2d((2*hidden_dim+2)*2, 1, kernel_size=(1,1)), Activation())
-
-        # ------------------------
-        # final transition layers
-        # ------------------------
-        self.dense1_final_transition_2x1_reduce = torch.nn.Sequential(
-        torch.nn.BatchNorm2d((2*hidden_dim+2)*1),
+        # ---------------------
+        # block 1.3 transition
+        # ---------------------
+        self.block13_transition_1x1 = torch.nn.Sequential(
+        torch.nn.BatchNorm2d(5*self.d_hidden),
         torch.nn.Dropout2d(p=dropout),
-        torch.nn.Conv2d((2*hidden_dim+2)*1, hidden_dim, kernel_size=(2+context_dims,1)), Activation())
-        # self.dense2_final_transition_2x1_reduce = torch.nn.Sequential(
-        # torch.nn.Conv2d((2*hidden_dim+2)*3, (2*hidden_dim+2)*3, kernel_size=(2+context_dims,1)), Activation())
+        torch.nn.Conv2d(5*self.d_hidden, self.d_hidden, kernel_size=(1,1)), Activation())
+        self.block13_transition_1x1.apply(init_weights)
 
-        # self.transformer = torch.nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=1, dim_feedforward=hidden_dim, dropout=0)
+        # ---------------------------
+        # block 1.4 positional encoder
+        # ---------------------------
+        self.block14_pos_encoder = PositionalEncoding((2+self.d_context)*self.d_hidden, dropout=dropout)
 
-        # ----------------------
-        # fully connected layer
-        # ----------------------
+        # ------------------------------
+        # block 1.4 transformer encoder
+        # ------------------------------
+        self.block14_branch1_tf_attn3 = torch.nn.TransformerEncoder(encoder_layers, num_layers=1)
+        self.block14_branch1_tf_attn3.apply(init_weights)
+        self.block14_branch2_tf_attn7 = torch.nn.TransformerEncoder(encoder_layers, num_layers=1)
+        self.block14_branch2_tf_attn7.apply(init_weights)
+        self.block14_branch3_tf_attn15 = torch.nn.TransformerEncoder(encoder_layers, num_layers=1)
+        self.block14_branch3_tf_attn15.apply(init_weights)
+        self.block14_branch4_maxpool = torch.nn.Sequential(
+        torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1)),
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, groups=self.d_hidden, kernel_size=(1,1)), Activation())
+        self.block14_branch4_maxpool.apply(init_weights)
+        self.block14_branch5_1x1 = torch.nn.Sequential(
+        torch.nn.Conv2d(self.d_hidden, self.d_hidden, groups=self.d_hidden, kernel_size=(1,1)), Activation())
+        self.block14_branch5_1x1.apply(init_weights)
+
+        # -------------------------
+        # block 1 final transition
+        # -------------------------
+        self.block1_final_transition_2x1 = torch.nn.Sequential(
+        torch.nn.BatchNorm2d(5*self.d_hidden),
+        torch.nn.Dropout2d(p=dropout),
+        torch.nn.Conv2d(5*self.d_hidden, self.d_hidden, kernel_size=(2+self.d_context,1)), Activation())
+        self.block1_final_transition_2x1.apply(init_weights)
+
+        # -------------
+        # output layer
+        # -------------
         self.fc_output = torch.nn.Sequential(
-        # torch.nn.Dropout(p=dropout),
-        # torch.nn.Linear(((2*hidden_dim+2)*1)*1, hidden_dim), Activation(),
-        torch.nn.Linear(hidden_dim, 1))
+        torch.nn.Dropout(p=dropout),
+        torch.nn.Linear(self.d_hidden, 1))
+        self.fc_output.apply(init_weights)
+
+
+    def generate_square_subsequent_mask(self, sz, attn_window):
+        mask = (torch.triu(torch.ones(sz, sz, device=torch.cuda.current_device())) == 1).transpose(0, 1)
+        mask = torch.logical_and(mask, (torch.triu(torch.ones(sz, sz, device=torch.cuda.current_device()), attn_window) != 1).transpose(0,1))
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+        return mask
 
     # ---------
     # forward
     # ---------
     def forward(self, x):
-        # ----------
-        # block 1.1
-        # ----------
+
+        # ---------------
+        # generate masks
+        # ---------------
+        mask_attn3 = self.generate_square_subsequent_mask(x.size(-1), 3)
+        mask_attn7 = self.generate_square_subsequent_mask(x.size(-1), 7)
+        mask_attn15 = self.generate_square_subsequent_mask(x.size(-1), 15)
+
+        # ---------------
+        # conv block 1.1
+        # ---------------
         out111 = self.block11_branch1_1x3_3x1(x)
         out112 = self.block11_branch2_1x7_3x1(x)
-        out113 = self.block11_branch3_maxpool(x)
-        out114 = self.block11_branch4_1x1(x)
-        out11 = torch.cat([out111,out112,out113,out114], axis=1)
+        out113 = self.block11_branch3_1x15_3x1(x)
+        out114 = self.block11_branch4_maxpool(x)
+        out115 = self.block11_branch5_1x1(x)
+        out11 = torch.cat([out111,out112,out113,out114,out115], axis=1)
 
         # ---------------------
         # block 1.1 transition
         # ---------------------
         out = self.block11_transition_1x1(out11)
 
-        # ----------
-        # block 1.2
-        # ----------
+        # ---------------
+        # conv block 1.2
+        # ---------------
         out121 = self.block12_branch1_1x3_3x1(out)
         out122 = self.block12_branch2_1x7_3x1(out)
-        out123 = self.block12_branch3_maxpool(out)
-        out124 = self.block12_branch4_1x1(out)
-        out12 = torch.cat([out121,out122,out123,out124], axis=1)
-        # out1 = torch.cat([out11, out12], axis=1)
+        out123 = self.block12_branch3_1x15_3x1(out)
+        out124 = self.block12_branch4_maxpool(out)
+        out125 = self.block12_branch5_1x1(out)
+        out12 = torch.cat([out121,out122,out123,out124,out125], axis=1)
 
         # ---------------------
         # block 1.2 transition
         # ---------------------
         out = self.block12_transition_1x1(out12)
 
-        # ----------
-        # block 1.3
-        # ----------
-        out131 = self.block13_branch1_1x3_3x1(out)
-        out132 = self.block13_branch2_1x7_3x1(out)
-        out133 = self.block13_branch3_maxpool(out)
-        out134 = self.block13_branch4_1x1(out)
-        out13 = torch.cat([out131,out132,out133,out134], axis=1)
-        # out1 = torch.cat([out11,out12,out13], axis=1)
+        # -----------------------------
+        # block 1.3 positional encoder
+        # -----------------------------
+        out_ = torch.flatten(out, start_dim=1, end_dim=2)
+        out_ = self.block13_pos_encoder(out_.permute(2, 0, 1))
 
-        # # -----------------------
-        # # dense block transition
-        # # -----------------------
-        # out = self.dense_transition_layer_1x1_reduce(out1)
+        # ------------------------------
+        # block 1.3 transformer encoder
+        # ------------------------------
+        out131 = self.block13_branch1_tf_attn3(out_, mask_attn3)
+        out132 = self.block13_branch2_tf_attn7(out_, mask_attn7)
+        out133 = self.block13_branch3_tf_attn15(out_, mask_attn15)
+        out13 = torch.cat([out131,out132,out133], axis=2)
+        out13 = torch.reshape(out13.permute(1, 2, 0), (out_.size(1),3*self.d_hidden,2+self.d_context,out_.size(0)))
+        out134 = self.block13_branch4_maxpool(out)
+        out135 = self.block13_branch5_1x1(out)
+        out13 = torch.cat([out13,out134,out135], axis=1)
 
-        # # ----------
-        # # block 2.1
-        # # ----------
-        # out211 = self.block21_branch1_1x3_3x1(out)
-        # out212 = self.block21_branch2_1x7_3x1(out)
-        # out213 = self.block21_branch3_maxpool(out)
-        # out214 = self.block21_branch4_1x1_self(out)
-        # out21 = torch.cat([out211,out212,out213,out214], axis=1)
+        # ---------------------
+        # block 1.3 transition
+        # ---------------------
+        out = self.block13_transition_1x1(out13)
 
-        # # ----------
-        # # block 2.2
-        # # ----------
-        # out221 = self.block22_branch1_1x1_1x3_3x1(out21)
-        # out222 = self.block22_branch2_1x1_1x7_3x1(out21)
-        # out223 = self.block22_branch3_maxpool_1x1(out21)
-        # out224 = self.block22_branch4_1x1_reduce(out21)
-        # out22 = torch.cat([out221,out222,out223,out224], axis=1)
-        # out2 = torch.cat([out21, out22], axis=1)
+        # -----------------------------
+        # block 1.4 positional encoder
+        # -----------------------------
+        out_ = torch.flatten(out, start_dim=1, end_dim=2)
+        out_ = self.block14_pos_encoder(out_.permute(2, 0, 1))
 
-        # # ----------
-        # # block 2.3
-        # # ----------
-        # out231 = self.block23_branch1_1x1_1x3_3x1(out2)
-        # out232 = self.block23_branch2_1x1_1x7_3x1(out2)
-        # out233 = self.block23_branch3_maxpool_1x1(out2)
-        # out234 = self.block23_branch4_1x1_reduce(out2)
-        # out23 = torch.cat([out231,out232,out233,out234], axis=1)
-        # out2 = torch.cat([out21,out22,out23], axis=1)
+        # ------------------------------
+        # block 1.4 transformer encoder
+        # ------------------------------
+        out141 = self.block14_branch1_tf_attn3(out_, mask_attn3)
+        out142 = self.block14_branch2_tf_attn7(out_, mask_attn7)
+        out143 = self.block14_branch3_tf_attn15(out_, mask_attn15)
+        out14 = torch.cat([out141,out142,out143], axis=2)
+        out14 = torch.reshape(out14.permute(1, 2, 0), (out_.size(1),3*self.d_hidden,2+self.d_context,out_.size(0)))
+        out144 = self.block14_branch4_maxpool(out)
+        out145 = self.block14_branch5_1x1(out)
+        out14 = torch.cat([out14,out144,out145], axis=1)
 
-        # -----------------
-        # final transition
-        # -----------------
-        out1 = self.dense1_final_transition_2x1_reduce(out13)
-        # out2 = self.dense2_final_transition_2x1_reduce(out2)
+        # -------------------------
+        # block 1 final transition
+        # -------------------------
+        out = self.block1_final_transition_2x1(out14)
 
         # ------------------
         # pyramidal pooling
         # ------------------
-        out1 = F.avg_pool2d(out1, kernel_size=(1,out1.size()[-1]//self.pyrd))
-        # out2 = F.avg_pool2d(out2, kernel_size=(1,out2.size()[-1]//self.pyrd))
-        # out = torch.cat([out1[...,:self.pyrd],out2[...,:self.pyrd]], axis=1)
-        out = torch.squeeze(F.max_pool2d(out1, kernel_size=(1,out1.size()[-1])))
+        out = F.avg_pool2d(out, kernel_size=(1,out.size()[-1]//self.pyrd))
+        out1 = torch.squeeze(F.max_pool2d(out, kernel_size=(1,out.size()[-1])))
 
-        # out = torch.unsqueeze(out, 0)
-        # out = torch.squeeze(self.transformer(out))
-
-        # ----------------------
-        # fully connected layer
-        # ----------------------
-        return self.fc_output(out)
-
-
-# class GatedNet(torch.nn.Module):
-#     def __init__(self, hidden_dim, context_dims, dropout):
-#         super(GatedNet, self).__init__()
-#
-#         self.gated_unit = torch.nn.LSTM(2+context_dims,
-#                                         hidden_dim,
-#                                         num_layers=2,
-#                                         dropout=dropout,
-#                                         batch_first=True)
-#         self.prediction = torch.nn.Linear(hidden_dim, 1)
-#
-#     # ---------
-#     # forward
-#     # ---------
-#     def forward(self, x):
-#         out = torch.squeeze(x)
-#         out = torch.swapaxes(out, 1, 2)
-#         out = self.gated_unit(out)
-#         out = out[1][1][-1,...]
-#         return self.prediction(out)
+        # -------------
+        # output layer
+        # -------------
+        return self.fc_output(out1)
 
 
 class Classifier(pl.LightningModule):
@@ -520,8 +506,10 @@ class Classifier(pl.LightningModule):
     # -------------------------
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr_init, weight_decay=self.hparams.weight_decay)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=self.hparams.lr_step)
-        return {'optimizer' : optimizer, 'lr_scheduler' : scheduler, 'monitor' : 'val_loss_batch_exp'}
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2,], gamma=self.hparams.lr_gamma)
+        return { 'optimizer' : optimizer,
+                 'lr_scheduler' : scheduler
+                 }
 
     # --------------------
     # weighted focal loss
@@ -531,7 +519,7 @@ class Classifier(pl.LightningModule):
         alpha = min([(1 - labels).sum() / labels.size()[0], self.hparams.max_alpha])
         at = (labels * alpha) + ((1 - labels) * (1 - alpha))
         logpt = -F.binary_cross_entropy_with_logits(output, labels, reduction='none')
-        return -at * (1 - logpt.exp()) ** self.hparams.gamma * logpt, alpha
+        return -at * (1 - logpt.exp()) ** self.hparams.gamma * logpt
 
     # -------------
     # forward pass
@@ -544,62 +532,58 @@ class Classifier(pl.LightningModule):
     # --------------
     def training_step(self, train_batch, batch_idx):
         """Optimize summed losses over batch"""
-        X, y, y_aux, fname = train_batch
+        X, y, fname = train_batch
         out = self.forward(X)
-        loss, alpha = self.focal_loss(out, y)
-        loss_sum = loss.sum()
+        loss = self.focal_loss(out, y)
+        loss_mean = loss.mean()
 
         # ------------
         # update logs
         # ------------
         if fname.split('/')[-6]=='experimental':
-            self.log('train_loss_batch_exp',
-                     loss_sum,
+            self.log('train_loss_exp',
+                     loss_mean,
                      on_step=False,
                      on_epoch=True,
                      sync_dist=True)
         else:
-            self.log('train_loss_batch_synt',
-                     loss_sum,
+            self.log('train_loss_synt',
+                     loss_mean,
                      on_step=False,
                      on_epoch=True,
                      sync_dist=True)
 
-        return loss_sum
+        return loss_mean
 
     # ----------------
     # validation step
     # ----------------
     def validation_step(self, val_batch, batch_idx, dataset_idx) -> None:
         """Val step updates metrics for each model across all datasets"""
-        X, y, y_aux, fname = val_batch
+        X, y, fname = val_batch
         out = self.forward(X)
-        loss, _ = self.focal_loss(out, y)
-        loss_sum = loss.sum()
+        loss = self.focal_loss(out, y)
+        loss_mean = loss.mean()
         pred = torch.sigmoid(out)
 
         # ----------------
         # update PR curve
         # ----------------
-        if torch.sum(y_aux) > 0:
-            y_aux_bool = y_aux.type(torch.bool)
-            pred_tf = torch.masked_select(pred, y_aux_bool)
-            y_tf = torch.masked_select(y, y_aux_bool)
-            self.val_prc[dataset_idx](pred_tf, y_tf)
+        self.val_prc[dataset_idx](pred, y)
 
         # ------------
         # update logs
         # ------------
         if fname.split('/')[-6]=='experimental':
-            self.log('val_loss_batch_exp',
-                     loss_sum,
+            self.log('val_loss_exp',
+                     loss_mean,
                      on_step=False,
                      on_epoch=True,
                      sync_dist=True,
                      add_dataloader_idx=False)
         else:
-            self.log('val_loss_batch_synt',
-                     loss_sum,
+            self.log('val_loss_synt',
+                     loss_mean,
                      on_step=False,
                      on_epoch=True,
                      sync_dist=True,
@@ -629,18 +613,14 @@ class Classifier(pl.LightningModule):
     # ----------
     def test_step(self, test_batch, batch_idx, dataset_idx) -> None:
         """Test step used to update metrics on individual datasets"""
-        X, y, y_aux, fname = test_batch
+        X, y, fname = test_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
 
         # ----------------
         # update PR curve
         # ----------------
-        if torch.sum(y_aux) > 0:
-            y_aux_bool = y_aux.type(torch.bool)
-            pred_tf = torch.masked_select(pred, y_aux_bool)
-            y_tf = torch.masked_select(y, y_aux_bool)
-            self.test_prc[dataset_idx](pred_tf, y_tf)
+        self.test_prc[dataset_idx](pred, y)
 
     # ---------------
     # test epoch end
@@ -659,6 +639,25 @@ class Classifier(pl.LightningModule):
             self.log(f'{name}_auroc', auc(fpr, tpr),
                      sync_dist=True, add_dataloader_idx=False)
             self.test_prc[idx].reset()
+
+
+class PositionalEncoding(torch.nn.Module):
+
+    def __init__(self, d_model, dropout, max_len=10000):
+        super(PositionalEncoding, self).__init__()
+
+        self.dropout = torch.nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model, device=torch.cuda.current_device())
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        return self.dropout(x + self.pe[:x.size(0), :])
 
 
 # ----------
@@ -688,18 +687,19 @@ if __name__ == '__main__':
     parser.add_argument('--ovr_tune', type=get_bool, default=False)
     parser.add_argument('--load_prev', type=get_bool, default=True)
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--context_dims', type=int, default=0)
-    parser.add_argument('--lr_init', type=float, default=0.00001)
-    parser.add_argument('--lr_step', type=int, default=30)
-    parser.add_argument('--max_epochs', type=int, default=30)
+    parser.add_argument('--context_dims', type=int, default=2)
+    parser.add_argument('--lr_init', type=float, default=0.0001)
+    parser.add_argument('--max_epochs', type=int, default=50)
     parser.add_argument('--tune_epochs', type=int, default=10)
-    parser.add_argument('--gamma', type=float, default=2.0)
+    parser.add_argument('--gamma', type=float, default=1.)
     parser.add_argument('--max_alpha', type=float, default=0.99)
     parser.add_argument('--hidden_dim', type=int, default=12)
-    parser.add_argument('--pyramid_dims', type=int, default=10)
-    parser.add_argument('--dropout', type=float, default=0.1)
+    parser.add_argument('--tf_heads', type=int, default=2)
+    parser.add_argument('--pyramid_dims', type=int, default=1)
+    parser.add_argument('--dropout', type=float, default=0.5)
     parser.add_argument('--grad_clip_val', type=float, default=1.)
     parser.add_argument('--weight_decay', type=float, default=0.)
+    parser.add_argument('--lr_gamma', type=float, default=0.1)
     parser.add_argument('--num_workers', type=int, default=36)
     parser.add_argument('--num_gpus', type=int, default=2)
     args = parser.parse_args()
@@ -711,7 +711,7 @@ if __name__ == '__main__':
     training = Dataset(root_dir=f'{args.dataset_dir}/training', rel_path='*/*/*/*/ExpressionData.csv',
                        context_dims=args.context_dims, batchSize=args.batch_size, overwrite=args.ovr_train,
                                                                     load_prev=args.load_prev, verbose=True)
-    train_loader = DataLoader(training, batch_size=None, shuffle=True, num_workers=args.num_workers)
+    train_loader = DataLoader(training, batch_size=None, shuffle=True, num_workers=args.num_workers, pin_memory=True)
 
     # -------------
     # tune dataset
@@ -721,7 +721,7 @@ if __name__ == '__main__':
         training_tune = Dataset(root_dir=f'{args.dataset_dir}/training_tune', rel_path='*/*/*/*/ExpressionData.csv',
                                 context_dims=args.context_dims, batchSize=args.batch_size, overwrite=args.ovr_tune,
                                                                              load_prev=args.load_prev, verbose=True)
-        tune_loader = DataLoader(training_tune, batch_size=None, shuffle=True, num_workers=args.num_workers)
+        tune_loader = DataLoader(training_tune, batch_size=None, shuffle=True, num_workers=args.num_workers, pin_memory=True)
 
     # --------------------
     # validation datasets
@@ -737,7 +737,7 @@ if __name__ == '__main__':
 
     val_loader = [None] * len(validation)
     for i in range(len(validation)):
-        val_loader[i] = DataLoader(validation[i], batch_size=None, num_workers=args.num_workers)
+        val_loader[i] = DataLoader(validation[i], batch_size=None, num_workers=args.num_workers, pin_memory=True)
 
     # -----------------
     # testing datasets
@@ -753,7 +753,10 @@ if __name__ == '__main__':
 
     test_loader = [None] * len(testing)
     for i in range(len(testing)):
-        test_loader[i] = DataLoader(testing[i], batch_size=None, num_workers=args.num_workers)
+        test_loader[i] = DataLoader(testing[i], batch_size=None, num_workers=args.num_workers, pin_memory=True)
+
+    if args.load_prev==False:
+        input('Completed overwrite.')
 
     # -------
     # logger
@@ -764,8 +767,7 @@ if __name__ == '__main__':
     # ------
     # model
     # ------
-    backbone = ConvNet(args.hidden_dim, args.context_dims, args.pyramid_dims, args.dropout)
-    # backbone = GatedNet(args.hidden_dim, args.context_dims, args.dropout)
+    backbone = ConvNet(args.hidden_dim, args.tf_heads, args.context_dims, args.pyramid_dims, args.dropout)
     model = Classifier(args, backbone, val_names, test_names)
 
     # ---------
@@ -775,9 +777,8 @@ if __name__ == '__main__':
                          deterministic=True,
                          gradient_clip_val=args.grad_clip_val,
                          accelerator='ddp', gpus=args.num_gpus,
-                         logger=logger, callbacks=[lr_monitor],
-                         num_sanity_val_steps=0,
-                         plugins=DDPPlugin(find_unused_parameters=False))
+                         logger=logger, callbacks=[lr_monitor], num_sanity_val_steps=0,
+                         plugins=[DDPPlugin(find_unused_parameters=False)])
     trainer.fit(model, train_loader, val_loader)
     trainer.save_checkpoint(f"lightning_logs/{args.output_dir}.ckpt")
 
@@ -795,7 +796,7 @@ if __name__ == '__main__':
         # ------
         # model
         # ------
-        backbone = ConvNet(args.hidden_dim, args.context_dims, args.pyramid_dims, args.dropout)
+        backbone = ConvNet(args.hidden_dim, args.tf_heads, args.context_dims, args.pyramid_dims, args.dropout)
         model = Classifier.load_from_checkpoint(f"lightning_logs/{args.output_dir}.ckpt",
                                                 hparams=args, backbone=backbone,
                                                 val_names=val_names, test_names=test_names)
@@ -807,9 +808,8 @@ if __name__ == '__main__':
                              deterministic=True,
                              gradient_clip_val=args.grad_clip_val,
                              accelerator='ddp', gpus=args.num_gpus,
-                             logger=logger, callbacks=[lr_monitor],
-                             num_sanity_val_steps=0,
-                             plugins=DDPPlugin(find_unused_parameters=False))
+                             logger=logger, callbacks=[lr_monitor], num_sanity_val_steps=0,
+                             plugins=[DDPPlugin(find_unused_parameters=False)])
         trainer.fit(model, tune_loader, val_loader)
         trainer.save_checkpoint(f"lightning_logs/{args.output_dir}_tune.ckpt")
 
