@@ -241,9 +241,19 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class BranchedBlock(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, filters, maxpool=True, batchnorm=True, skip_connection=False, negative_slope=0.2):
+    def __init__(self, in_channels,
+                 hidden_dim,
+                 filters,
+                 out_channels=None,
+                 maxpool=True,
+                 transition=False,
+                 batchnorm=True,
+                 skip_connection=True,
+                 negative_slope=0.2):
+
         super(BranchedBlock, self).__init__()
         self.do_maxpool = maxpool
+        self.do_transition = transition
         self.do_batchnorm = batchnorm
         self.skip = skip_connection
         Activation = torch.nn.LeakyReLU
@@ -252,15 +262,29 @@ class BranchedBlock(torch.nn.Module):
         # convolutional branches
         # -----------------------
         self.branches = torch.nn.ModuleList([ torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels, out_channels, kernel_size=(1,filters[i]), padding=(0,filters[i]//2)),
+            torch.nn.Conv2d(in_channels, hidden_dim, kernel_size=(1,filters[i]), padding=(0,filters[i]//2)),
             Activation(negative_slope=negative_slope)) for i in range(len(filters)) ])
         for i in range(len(self.branches)): self.branches[i].apply(init_weights_scaled)
 
-        # ------------------
-        # maxpool/batchnorm
-        # ------------------
+        # --------
+        # maxpool
+        # --------
         if self.do_maxpool==True: self.maxpool = torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1))
-        if self.do_batchnorm==True: self.batchnorm = torch.nn.BatchNorm2d(len(self.branches)*out_channels)
+
+        # ---------------------
+        # 1x1 transition layer
+        # ---------------------
+        if self.do_transition==True and out_channels is not None:
+            self.transition_1x1 = torch.nn.Sequential(
+                torch.nn.Conv2d(len(self.branches)*hidden_dim, out_channels, kernel_size=(1,1)),
+                Activation(negative_slope=negative_slope))
+            self.transition_1x1.apply(init_weights_scaled)
+
+        # ----------
+        # batchnorm
+        # ----------
+        if self.do_batchnorm==True: self.batchnorm = torch.nn.BatchNorm2d(
+            out_channels if self.do_transition==True and out_channels is not None else len(self.branches)*hidden_dim)
 
     # --------
     # forward
@@ -275,20 +299,36 @@ class BranchedBlock(torch.nn.Module):
             br_out = self.branches[i](x)
             out = torch.cat([out, br_out], axis=1)
 
-        # --------------------------
-        # maxpool/batchnorm/dropout
-        # --------------------------
+        # --------
+        # maxpool
+        # --------
         if self.do_maxpool==True:
             out = self.maxpool(out)
+
+        # ------------------------
+        # dropout/transition/skip
+        # ------------------------
+        out = F.dropout(out, p)
+        if self.do_transition==True:
+            out = self.transition_1x1(out)
         if self.skip==True: out += x
+
+        # ----------
+        # batchnorm
+        # ----------
         if self.do_batchnorm==True:
             out = self.batchnorm(out)
-        out = F.dropout(out, p)
         return out
 
 
 class ConvNet(torch.nn.Module):
-    def __init__(self, num_layers, filters, hidden_dim, context_dims, pyramid_dims, negative_slope=0.2):
+    def __init__(self, num_layers,
+                 filters,
+                 hidden_dim,
+                 context_dims,
+                 pyramid_dims,
+                 negative_slope=0.2):
+
         super(ConvNet, self).__init__()
         self.d_context = context_dims
         self.d_hidden = hidden_dim
@@ -299,41 +339,50 @@ class ConvNet(torch.nn.Module):
         # ---------------------
         # branched block: time
         # ---------------------
-        self.conv_block_time = BranchedBlock(1, self.d_hidden, filters, maxpool=False, batchnorm=False, skip_connection=False)
-        self.time_transition = torch.nn.Sequential(
-            torch.nn.Conv2d(self.d_hidden*len(filters), 1, kernel_size=(1,1)), Activation(negative_slope=negative_slope))
-        self.time_transition.apply(init_weights_scaled)
+        self.time_block = BranchedBlock(in_channels=1,
+                                        hidden_dim=self.d_hidden,
+                                        filters=filters,
+                                        out_channels=1,
+                                        maxpool=False,
+                                        transition=True,
+                                        batchnorm=False,
+                                        skip_connection=False)
 
         # ----------------------
         # branched blocks: core
         # ----------------------
-        self.conv_blocks = torch.nn.ModuleList([BranchedBlock(3+2*self.d_context, self.d_hidden, filters, skip_connection=False)])
-        self.conv_blocks.extend([BranchedBlock(len(filters)*self.d_hidden, self.d_hidden, filters, skip_connection=True) for i in range(1,self.n_layers)])
+        self.core_blocks = torch.nn.ModuleList([BranchedBlock(in_channels=3+2*self.d_context,
+                                                              hidden_dim=self.d_hidden,
+                                                              filters=filters,
+                                                              skip_connection=False)])
+
+        self.core_blocks.extend([BranchedBlock(in_channels=len(filters)*self.d_hidden,
+                                               hidden_dim=self.d_hidden, filters=filters)
+                                               for i in range(1,self.n_layers)])
 
         # ----------------------
         # fully connected layer
         # ----------------------
-        self.linear_output = torch.nn.Linear((len(filters)*self.d_hidden)*self.n_pyrd, 1)
+        self.linear_output = torch.nn.Linear(len(filters)*self.d_hidden*self.n_pyrd, 1)
         self.linear_output.apply(init_weights_scaled)
 
     # ---------
     # forward
     # ---------
-    def forward(self, x, p):
+    def forward(self, x, p_block, p_final):
 
         # ---------------------
         # branched block: time
         # ---------------------
         dt, out = x[:,0,:,:], x[:,1:,:,:]
-        dt = self.conv_block_time(dt.unsqueeze(2), .1)
-        dt = self.time_transition(dt)
+        dt = self.time_block(dt.unsqueeze(2), p_block)
         out = torch.cat([dt,out], axis=1)
 
         # ----------------------
         # branched blocks: core
         # ----------------------
         for i in range(self.n_layers):
-            out = self.conv_blocks[i](out, .1)
+            out = self.core_blocks[i](out, p_block)
 
         # ----------------
         # pyramid pooling
@@ -344,7 +393,7 @@ class ConvNet(torch.nn.Module):
         # fully connected layer
         # ----------------------
         out = torch.flatten(out, start_dim=1)
-        out = F.dropout(out, p)
+        out = F.dropout(out, p_final)
         return self.linear_output(out)
 
 
@@ -374,17 +423,11 @@ class Classifier(pl.LightningModule):
         lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=self.hparams.patience, factor=0.01, min_lr=0.01*self.hparams.lr_init)
         return { 'optimizer' : optimizer, 'lr_scheduler' : lr_scheduler, 'monitor' : 'val_loss_exp' }
 
-    # ---------------
-    # dropout warmup
-    # ---------------
-    def update_dropout(self, k=100):
-        return (2*self.hparams.dropout)/(1 + math.exp(-(1/k)*self.global_step)) - self.hparams.dropout
-
     # -------------
     # forward pass
     # -------------
-    def forward(self, x, p):
-        return self.backbone(x, p)
+    def forward(self, x, p_block, p_final):
+        return self.backbone(x, p_block, p_final)
 
     # --------------
     # training step
@@ -392,9 +435,9 @@ class Classifier(pl.LightningModule):
     def training_step(self, train_batch, batch_idx):
         """Optimize mean loss per batch"""
         X, y, fname = train_batch
-        # p = self.update_dropout()
-        p = self.hparams.dropout
-        out = self.forward(X, p)
+        p_block = self.hparams.dropout_block
+        p_final = self.hparams.dropout_final
+        out = self.forward(X, p_block, p_final)
         pred = torch.sigmoid(out)
         loss = F.binary_cross_entropy_with_logits(out, y, weight=y.sum()/y.size(0), reduction='sum')/self.hparams.batch_size
 
@@ -416,10 +459,6 @@ class Classifier(pl.LightningModule):
                      on_epoch=True,
                      sync_dist=True)
 
-        # self.log('dropout_p', p,
-        #          on_step=True,
-        #          on_epoch=True)
-
         return loss
 
     # ----------------
@@ -428,9 +467,9 @@ class Classifier(pl.LightningModule):
     def validation_step(self, val_batch, batch_idx, dataset_idx) -> None:
         """Val step updates metrics for each model across all datasets"""
         X, y, fname = val_batch
-        # p = self.update_dropout()
-        p = self.hparams.dropout
-        out = self.forward(X, p)
+        p_block = self.hparams.dropout_block
+        p_final = self.hparams.dropout_final
+        out = self.forward(X, p_block, p_final)
         pred = torch.sigmoid(out)
         loss = F.binary_cross_entropy_with_logits(out, y, weight=y.sum()/y.size(0), reduction='sum')/self.hparams.batch_size
 
@@ -651,11 +690,12 @@ if __name__ == '__main__':
     parser.add_argument('--min_cells', type=int, default=50)
     parser.add_argument('--lr_init', type=float, default=.00001)
     parser.add_argument('--max_epochs', type=int, default=100)
-    parser.add_argument('--num_layers', type=int, default=50)
-    parser.add_argument('--filters', type=str, default='7,31')
+    parser.add_argument('--num_layers', type=int, default=2)
+    parser.add_argument('--filters', type=str, default='1,7,31')
     parser.add_argument('--hidden_dim', type=int, default=12)
     parser.add_argument('--pyramid_dims', type=int, default=1)
-    parser.add_argument('--dropout', type=float, default=.5)
+    parser.add_argument('--dropout_block', type=float, default=0.)
+    parser.add_argument('--dropout_final', type=float, default=0.)
     parser.add_argument('--weight_decay', type=float, default=0.)
     parser.add_argument('--grad_clip_val', type=float, default=.01)
     parser.add_argument('--num_workers', type=int, default=36)
