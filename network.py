@@ -25,7 +25,7 @@ from optuna.integration                        import PyTorchLightningPruningCal
 
 class Dataset(torch.utils.data.Dataset):
     """Dataset class for generating/loading batches"""
-    def __init__(self, root_dir, rel_path, context_dims, min_cells, batchSize=None, wShuffle=0.02,
+    def __init__(self, root_dir, rel_path, context_dims, min_cells, batchSize=None, wShuffle=0.05,
                  max_lag=0.05, overwrite=False, load_prev=True, verbose=False):
 
         self.root_dir = root_dir
@@ -70,9 +70,17 @@ class Dataset(torch.utils.data.Dataset):
             fname = self.X_fnames[idx_]
             X = np.load(self.X_fnames[idx_], allow_pickle=True)
             y = np.load(self.y_fnames[idx_], allow_pickle=True)
+
+            # shuffle the cells in pseudotime on each batch
+            order = self.shuffle_pt(np.arange(X.shape[-1]),
+                        random.randint(0,1000000), False)
+
+            # add uniform noise to each batch
+            X += np.random.uniform(-1e-4, 1e-4, size=X.shape).astype(np.float32)
+
             if X.shape[3] > self.min_cells : new_batch = False
             idx_ = np.random.choice(np.arange(len(self.X_fnames)))
-        return X, y, fname
+        return X[:,:,:,order], y, fname
 
 
     def seed_from_string(self, s):
@@ -87,10 +95,10 @@ class Dataset(torch.utils.data.Dataset):
         return itertools.zip_longest(*args, fillvalue=fillvalue)
 
 
-    def shuffle_pt(self, pt, seed):
+    def shuffle_pt(self, pt, seed, df=True):
         """Kernelized swapper"""
         np.random.seed(seed)
-        pt = pt.copy().values
+        if df==True: pt = pt.copy().values
         for i in np.arange(pt.size):
             j = np.random.normal(loc=0, scale=self.pt_shuffle*pt.size)
             i_ = int(round(np.clip(i+j, 0, pt.size-1)))
@@ -242,12 +250,12 @@ class Dataset(torch.utils.data.Dataset):
 
 class BranchedBlock(torch.nn.Module):
     def __init__(self, in_channels,
-                 hidden_dim,
-                 filters,
+                 hidden_dim, filters,
+                 transition=False,
                  out_channels=None,
                  maxpool=True,
-                 transition=False,
                  batchnorm=True,
+                 attention=True,
                  skip_connection=True,
                  negative_slope=0.2):
 
@@ -255,6 +263,7 @@ class BranchedBlock(torch.nn.Module):
         self.do_maxpool = maxpool
         self.do_transition = transition
         self.do_batchnorm = batchnorm
+        self.attention = attention
         self.skip = skip_connection
         Activation = torch.nn.LeakyReLU
 
@@ -266,24 +275,30 @@ class BranchedBlock(torch.nn.Module):
             Activation(negative_slope=negative_slope)) for i in range(len(filters)) ])
         for i in range(len(self.branches)): self.branches[i].apply(init_weights_scaled)
 
-        # --------
-        # maxpool
-        # --------
+        # --------------
+        # maxpool layer
+        # --------------
         if self.do_maxpool==True: self.maxpool = torch.nn.MaxPool2d(kernel_size=(1,3), stride=(1,1), padding=(0,1))
 
-        # ---------------------
-        # 1x1 transition layer
-        # ---------------------
+        # ---------------
+        # 1x1 transition
+        # ---------------
         if self.do_transition==True and out_channels is not None:
             self.transition_1x1 = torch.nn.Sequential(
                 torch.nn.Conv2d(len(self.branches)*hidden_dim, out_channels, kernel_size=(1,1)),
                 Activation(negative_slope=negative_slope))
             self.transition_1x1.apply(init_weights_scaled)
 
-        # ----------
-        # batchnorm
-        # ----------
+        # ----------------
+        # batchnorm layer
+        # ----------------
         if self.do_batchnorm==True: self.batchnorm = torch.nn.BatchNorm2d(
+            out_channels if self.do_transition==True and out_channels is not None else len(self.branches)*hidden_dim)
+
+        # ------------------
+        # channel attention
+        # ------------------
+        if self.attention==True: self.channel_attention = ChannelAttentionLayer(
             out_channels if self.do_transition==True and out_channels is not None else len(self.branches)*hidden_dim)
 
     # --------
@@ -299,95 +314,170 @@ class BranchedBlock(torch.nn.Module):
             br_out = self.branches[i](x)
             out = torch.cat([out, br_out], axis=1)
 
-        # --------
-        # maxpool
-        # --------
+        # --------------
+        # maxpool layer
+        # --------------
         if self.do_maxpool==True:
             out = self.maxpool(out)
 
-        # ------------------------
-        # dropout/transition/skip
-        # ------------------------
-        out = F.dropout(out, p)
+        # -----------------
+        # transition layer
+        # -----------------
         if self.do_transition==True:
             out = self.transition_1x1(out)
-        if self.skip==True: out += x
 
-        # ----------
-        # batchnorm
-        # ----------
+        # --------------------
+        # batchnorm + dropout
+        # --------------------
         if self.do_batchnorm==True:
             out = self.batchnorm(out)
+        out = F.dropout(out, p)
+
+        # ------------------
+        # channel attention
+        # ------------------
+        if self.attention==True:
+            out = self.channel_attention(out)
+
+        # ----------------
+        # skip connection
+        # ----------------
+        if self.skip==True:
+            out += x
         return out
 
 
 class ConvNet(torch.nn.Module):
     def __init__(self, num_layers,
-                 filters,
-                 hidden_dim,
+                 filters, hidden_dim,
                  context_dims,
-                 pyramid_dims,
                  negative_slope=0.2):
 
         super(ConvNet, self).__init__()
         self.d_context = context_dims
         self.d_hidden = hidden_dim
         self.n_layers = num_layers
-        self.n_pyrd = pyramid_dims
         Activation = torch.nn.LeakyReLU
 
-        # ---------------------
-        # branched block: time
-        # ---------------------
+        # -----------
+        # pseudotime
+        # -----------
         self.time_block = BranchedBlock(in_channels=1,
                                         hidden_dim=self.d_hidden,
                                         filters=filters,
+                                        transition=True,
                                         out_channels=1,
                                         maxpool=False,
-                                        transition=True,
                                         batchnorm=False,
+                                        attention=False,
                                         skip_connection=False)
 
-        # ----------------------
-        # branched blocks: core
-        # ----------------------
-        self.core_blocks = torch.nn.ModuleList([BranchedBlock(in_channels=3+2*self.d_context,
+        # # ---------------------
+        # # single-gene features
+        # # ---------------------
+        # self.single_gene_blocks = torch.nn.ModuleList([BranchedBlock(in_channels=2,
+        #                                                              hidden_dim=self.d_hidden,
+        #                                                              filters=filters,
+        #                                                              transition=True,
+        #                                                              out_channels=1,
+        #                                                              maxpool=False,
+        #                                                              batchnorm=False,
+        #                                                              attention=False,
+        #                                                              skip_connection=False)
+        #                                                for i in range(2+2*self.d_context)])
+
+        # # -------------------
+        # # gene-pair features
+        # # -------------------
+        # self.gene_pair_blocks = torch.nn.ModuleList([BranchedBlock(in_channels=3,
+        #                                                            hidden_dim=self.d_hidden,
+        #                                                            filters=filters,
+        #                                                            transition=True,
+        #                                                            out_channels=1,
+        #                                                            maxpool=False,
+        #                                                            batchnorm=False,
+        #                                                            skip_connection=False)
+        #                                              for i in range(2*(2+2*self.d_context))])
+
+        # ------------------
+        # all-gene features
+        # ------------------
+        self.core_blocks = torch.nn.ModuleList([BranchedBlock(in_channels=3,
                                                               hidden_dim=self.d_hidden,
                                                               filters=filters,
+                                                              transition=False,
+                                                              maxpool=True,
+                                                              batchnorm=True,
+                                                              attention=True,
                                                               skip_connection=False)])
 
         self.core_blocks.extend([BranchedBlock(in_channels=len(filters)*self.d_hidden,
-                                               hidden_dim=self.d_hidden, filters=filters)
+                                               hidden_dim=self.d_hidden, filters=filters,
+                                               transition=False,
+                                               maxpool=True,
+                                               batchnorm=True,
+                                               attention=True,
+                                               skip_connection=True)
                                                for i in range(1,self.n_layers)])
+
+        # -----------------
+        # adaptive pooling
+        # -----------------
+        self.max_pooling = torch.nn.AdaptiveMaxPool2d(1)
 
         # ----------------------
         # fully connected layer
         # ----------------------
-        self.linear_output = torch.nn.Linear(len(filters)*self.d_hidden*self.n_pyrd, 1)
+        self.linear_output = torch.nn.Linear(len(filters)*self.d_hidden, 1)
         self.linear_output.apply(init_weights_scaled)
 
     # ---------
     # forward
     # ---------
     def forward(self, x, p_block, p_final):
+        dt, out = x[:,0,:,:], x[:,1:3,:,:]
 
-        # ---------------------
-        # branched block: time
-        # ---------------------
-        dt, out = x[:,0,:,:], x[:,1:,:,:]
+        # -----------
+        # pseudotime
+        # -----------
         dt = self.time_block(dt.unsqueeze(2), p_block)
-        out = torch.cat([dt,out], axis=1)
 
-        # ----------------------
-        # branched blocks: core
-        # ----------------------
+        # # ---------------------
+        # # single-gene features
+        # # ---------------------
+        # for i in range(out.size(1)):
+        #     bl_in = torch.cat([dt, out[:,i,:,:].unsqueeze(2)], axis=1)
+        #     bl_out = self.single_gene_blocks[i](bl_in, p_block)
+        #     out[:,i,:,:] = torch.squeeze(bl_out).unsqueeze(1)
+
+        # # -------------------
+        # # gene-pair features
+        # # -------------------
+        # features = torch.clone(dt)
+        # for i in range(out.size(1)):
+        #     # gene pairs with gene A
+        #     bl_in = torch.cat([dt, out[:,0,:,:].unsqueeze(2), out[:,i,:,:].unsqueeze(2)], axis=1)
+        #     bl_out = self.gene_pair_blocks[(2*i)](bl_in, p_block)
+        #     features = torch.cat([features,bl_out], axis=1)
+        #
+        #     # gene pairs with gene B
+        #     bl_in = torch.cat([dt, out[:,1,:,:].unsqueeze(2), out[:,i,:,:].unsqueeze(2)], axis=1)
+        #     bl_out = self.gene_pair_blocks[(2*i)+1](bl_in, p_block)
+        #     features = torch.cat([features,bl_out], axis=1)
+        # out = torch.clone(features)
+
+        # ------------------
+        # all-gene features
+        # ------------------
+        out = torch.cat([dt,out], axis=1)
         for i in range(self.n_layers):
             out = self.core_blocks[i](out, p_block)
 
-        # ----------------
-        # pyramid pooling
-        # ----------------
-        out = F.avg_pool2d(out, kernel_size=(1,out.size(-1)//self.n_pyrd))
+        # -----------------
+        # adaptive pooling
+        # -----------------
+        # out = torch.cat([out1,out2], axis=1)
+        out = self.max_pooling(out)
 
         # ----------------------
         # fully connected layer
@@ -395,6 +485,22 @@ class ConvNet(torch.nn.Module):
         out = torch.flatten(out, start_dim=1)
         out = F.dropout(out, p_final)
         return self.linear_output(out)
+
+
+class ChannelAttentionLayer(torch.nn.Module):
+    def __init__(self, channels, reduction=16):
+        super(ChannelAttentionLayer, self).__init__()
+
+        self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
+
+        self.conv_du = torch.nn.Sequential(
+            torch.nn.Conv2d(channels, channels//reduction, 1, padding=0, bias=True), torch.nn.ReLU(inplace=True),
+            torch.nn.Conv2d(channels//reduction, channels, 1, padding=0, bias=True), torch.nn.Sigmoid())
+
+    def forward(self, x):
+        y = self.avg_pool(x)
+        y = self.conv_du(y)
+        return x * y
 
 
 class Classifier(pl.LightningModule):
@@ -420,7 +526,7 @@ class Classifier(pl.LightningModule):
     # -------------------------
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr_init, weight_decay=self.hparams.weight_decay)
-        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=self.hparams.patience, factor=0.01, min_lr=0.01*self.hparams.lr_init)
+        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=self.hparams.patience, factor=0.1, min_lr=0.001*self.hparams.lr_init)
         return { 'optimizer' : optimizer, 'lr_scheduler' : lr_scheduler, 'monitor' : 'val_loss_exp' }
 
     # -------------
@@ -441,7 +547,7 @@ class Classifier(pl.LightningModule):
         pred = torch.sigmoid(out)
         loss = F.binary_cross_entropy_with_logits(out, y, weight=y.sum()/y.size(0), reduction='sum')/self.hparams.batch_size
 
-        self.logger.experiment.add_histogram('train_pred', pred, global_step=self.global_step)
+        # self.logger.experiment.add_histogram('train_pred', pred, global_step=self.global_step)
         # self.logger.experiment.add_histogram('fc_weights', fc_w, global_step=self.global_step)
         # self.logger.experiment.add_histogram('conv_weights', conv_w, global_step=self.global_step)
 
@@ -693,7 +799,6 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--filters', type=str, default='1,7,31')
     parser.add_argument('--hidden_dim', type=int, default=12)
-    parser.add_argument('--pyramid_dims', type=int, default=1)
     parser.add_argument('--dropout_block', type=float, default=0.)
     parser.add_argument('--dropout_final', type=float, default=0.)
     parser.add_argument('--weight_decay', type=float, default=0.)
@@ -784,8 +889,7 @@ if __name__ == '__main__':
         backbone = ConvNet(args.num_layers,
                            args.filters,
                            args.hidden_dim,
-                           args.context_dims,
-                           args.pyramid_dims)
+                           args.context_dims)
         model = Classifier(args, backbone, val_names)
         # model = Classifier(args, backbone, val_names, test_names)
 
