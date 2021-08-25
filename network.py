@@ -40,6 +40,7 @@ class Dataset(torch.utils.data.Dataset):
                  batchSize=None,
                  shuffle=0.,
                  ncells=0,
+                 dropout=0.,
                  overwrite=False,
                  load_prev=True,
                  verbose=False):
@@ -54,6 +55,7 @@ class Dataset(torch.utils.data.Dataset):
         self.nbins = nbins
         self.shuffle = shuffle
         self.ncells = ncells
+        self.dropout = dropout
 
         if self.load_prev==True:
             # ---------------------------
@@ -160,9 +162,15 @@ class Dataset(torch.utils.data.Dataset):
                 if self.shuffle > 0.:
                     traj_idx = self.shuffle_pt(traj_idx, seed=None, df=True)
 
-                # sample ncells, if ncells < len(traj)
+                # sample ncells (only if len(traj) > ncells)
                 if self.ncells > 0 and self.ncells < traj_idx.size:
                     traj_idx = traj_idx[np.sort(np.random.choice(np.arange(traj_idx.size), self.ncells, False))].copy()
+
+                # additional dropouts
+                if self.dropout > 0.:
+                    below_cutoff = (sce.loc[traj_idx,:].values < sce.loc[traj_idx,:].quantile(self.dropout, axis=1).values[:,None])
+                    drop = np.random.choice([0.,1.], p=[self.dropout,1-self.dropout], size=below_cutoff.shape)
+                    sce.loc[traj_idx,:] *= (below_cutoff.astype(int) * drop + (~below_cutoff).astype(int))
 
                 # trajectory pairwise gene correlations: max absolute cross corr or max pearson corr
                 if self.max_lag > 0: traj_pcorr = sce.loc[traj_idx,:].corr(self.max_cross_correlation)
@@ -418,6 +426,7 @@ if __name__ == '__main__':
     parser.add_argument('--nbins_img', type=int, default=32)
     parser.add_argument('--shuffle_traj', type=float, default=0.)
     parser.add_argument('--ncells_traj', type=int, default=0)
+    parser.add_argument('--dropout_traj', type=float, default=0.)
     parser.add_argument('--lr_init', type=float, default=.1)
     parser.add_argument('--nn_dropout', type=float, default=0.)
     parser.add_argument('--model_cfg', type=str, default='')
@@ -455,6 +464,7 @@ if __name__ == '__main__':
                            nbins=args.nbins_img,
                            shuffle=args.shuffle_traj,
                            ncells=args.ncells_traj,
+                           dropout=args.dropout_traj,
                            batchSize=args.batch_size,
                            overwrite=args.ovr_datasets,
                            load_prev=args.load_datasets)
