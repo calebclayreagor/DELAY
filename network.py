@@ -41,6 +41,7 @@ class Dataset(torch.utils.data.Dataset):
                  shuffle=0.,
                  ncells=0,
                  dropout=0.,
+                 ablate='none',
                  overwrite=False,
                  load_prev=True,
                  verbose=False):
@@ -56,6 +57,7 @@ class Dataset(torch.utils.data.Dataset):
         self.shuffle = shuffle
         self.ncells = ncells
         self.dropout = dropout
+        self.ablate = ablate
 
         if self.load_prev==True:
             # ---------------------------
@@ -172,10 +174,6 @@ class Dataset(torch.utils.data.Dataset):
                     drop = np.random.choice([0.,1.], p=[self.dropout,1-self.dropout], size=below_cutoff.shape)
                     sce.loc[traj_idx,:] *= (below_cutoff.astype(int) * drop + (~below_cutoff).astype(int))
 
-                # trajectory pairwise gene correlations: max absolute cross corr or max pearson corr
-                if self.max_lag > 0: traj_pcorr = sce.loc[traj_idx,:].corr(self.max_cross_correlation)
-                elif self.max_lag==0: traj_pcorr = sce.loc[traj_idx,:].corr(method='pearson')
-
                 if ref is not None: pass
                 else:
                     # load gene regulation labels from reference file
@@ -184,13 +182,41 @@ class Dataset(torch.utils.data.Dataset):
                     g2 = [g.lower() for g in ref['Gene2'].values]
                     ref_1d = np.array(["%s %s" % x for x in list(zip(g1,g2))])
 
-                # generate list of tuples containing all possible gene pairs w/ neighbors (note: gene A and neighbors are always tfs)
-                gpairs = [tuple(list(g)+list(traj_pcorr.loc[g[0],(traj_pcorr.index.isin(g1))&(~traj_pcorr.index.isin(g))].nlargest(self.neighbors).index)
-                                        +list(traj_pcorr.loc[g[1],(traj_pcorr.index.isin(g1))&(~traj_pcorr.index.isin(g))].nlargest(self.neighbors).index))
-                                                                                                            for g in itertools.product(set(g1), sce.columns)]
+                # trajectory pairwise gene correlations: max absolute cross corr or max pearson corr
+                if self.max_lag > 0: traj_pcorr = sce.loc[traj_idx,:].corr(self.max_cross_correlation)
+                elif self.max_lag==0: traj_pcorr = sce.loc[traj_idx,:].corr(method='pearson')
+
+                # gene ablations
+                gmasks = dict()
+                for g in itertools.product(sorted(set(g1)), sce.columns):
+                    if self.ablate=='none':
+                        gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                    elif self.ablate=='regulators':
+                        pair_reg = ref.loc[ref['Gene2'].str.lower().isin(g), 'Gene1']
+                        pair_reg = pair_reg[ pair_reg.duplicated() ].str.lower().values
+                        gmasks[g] = ~sce.columns.isin(pair_reg)
+                    elif self.ablate=='targets':
+                        pair_targ = ref.loc[ref['Gene1'].str.lower().isin(g), 'Gene2']
+                        pair_targ = pair_targ[ pair_targ.duplicated() ].str.lower().values
+                        gmasks[g] = ~sce.columns.isin(pair_targ)
+                    elif self.ablate=='transitive':
+                        pair_trans = np.intersect1d(ref.loc[ref['Gene1'].str.lower()==g[0], 'Gene2'].str.lower().values,
+                                                    ref.loc[ref['Gene2'].str.lower()==g[1], 'Gene1'].str.lower().values)
+                        gmasks[g] = ~sce.columns.isin(pair_trans)
+
+                # generate list of tuples containing all possible gene pairs, with neighbors
+                gpairs = [tuple( list(g) + list(traj_pcorr.loc[g[0],(traj_pcorr.index.isin(g1)) &
+                                                                    (~traj_pcorr.index.isin(g)) &
+                                                                    (gmasks[g])
+                                                               ].nlargest(self.neighbors).index)
+                                         + list(traj_pcorr.loc[g[1],(traj_pcorr.index.isin(g1)) &
+                                                                    (~traj_pcorr.index.isin(g)) &
+                                                                    (gmasks[g])
+                                                               ].nlargest(self.neighbors).index) )
+                          for g in itertools.product(sorted(set(g1)), sce.columns)]
 
                 # shuffle order of gene-pair-neighbor tuples
-                seed = self.seed_from_string(traj_folder);
+                seed = self.seed_from_string(traj_folder)
                 random.seed(seed); random.shuffle(gpairs)
 
                 # list of gene-gene trajectory pair idxs
@@ -427,6 +453,7 @@ if __name__ == '__main__':
     parser.add_argument('--shuffle_traj', type=float, default=0.)
     parser.add_argument('--ncells_traj', type=int, default=0)
     parser.add_argument('--dropout_traj', type=float, default=0.)
+    parser.add_argument('--ablate_genes', type=str, default='none')
     parser.add_argument('--lr_init', type=float, default=.1)
     parser.add_argument('--nn_dropout', type=float, default=0.)
     parser.add_argument('--model_cfg', type=str, default='')
@@ -465,6 +492,7 @@ if __name__ == '__main__':
                            shuffle=args.shuffle_traj,
                            ncells=args.ncells_traj,
                            dropout=args.dropout_traj,
+                           ablate=args.ablate_genes,
                            batchSize=args.batch_size,
                            overwrite=args.ovr_datasets,
                            load_prev=args.load_datasets)
