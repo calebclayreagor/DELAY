@@ -41,7 +41,8 @@ class Dataset(torch.utils.data.Dataset):
                  shuffle=0.,
                  ncells=0,
                  dropout=0.,
-                 ablate='none',
+                 motif='none',
+                 ablate=False,
                  overwrite=False,
                  load_prev=True,
                  verbose=False):
@@ -57,23 +58,22 @@ class Dataset(torch.utils.data.Dataset):
         self.shuffle = shuffle
         self.ncells = ncells
         self.dropout = dropout
+        self.motif = motif
         self.ablate = ablate
 
+        # get batch pathnames
         if self.load_prev==True:
-            # ---------------------------
-            # get batch pathnames (X, y)
-            # ---------------------------
             prev_path = '/'.join(self.rel_path.split('/')[:-1])+'*/'
             self.X_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'X_*.npy'))]
             self.y_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'y_*.npy'))]
+            self.msk_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'msk_*.npy'))]
 
         else:
-            # ------------------------------------------------------
-            # generate batch(es) for each lineage trajectory (X, y)
-            # ------------------------------------------------------
+            # generate batch(es) for each cell-type lineage trajectory (X, y, mask)
             self.sce_fnames = sorted(pathlib.Path(self.root_dir).glob(self.rel_path))
             self.X_fnames = [None] * len(self.sce_fnames)
             self.y_fnames = [None] * len(self.sce_fnames)
+            self.msk_fnames = [None] * len(self.sce_fnames)
             for sce_fname in (tqdm(self.sce_fnames) if verbose else self.sce_fnames):
                 self.generate_batches(str(sce_fname))
 
@@ -83,7 +83,8 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         X = np.load(self.X_fnames[idx], allow_pickle=True)
         y = np.load(self.y_fnames[idx], allow_pickle=True)
-        return X, y
+        msk = np.load(self.msk_fnames[idx], allow_pickle=True)
+        return X, y, msk
 
     def seed_from_string(self, s):
         """Generate random seed given a string"""
@@ -140,6 +141,14 @@ class Dataset(torch.utils.data.Dataset):
                             self.y_fnames[idx[0]] = file
                         else:
                             self.y_fnames.extend([file])
+
+                    # save batch filename for motif masks array
+                    elif file.split('/')[-1][:3]=='msk':
+                        idx = np.where(np.array(self.msk_fnames) == None)[0]
+                        if idx.size > 0:
+                            self.msk_fnames[idx[0]] = file
+                        else:
+                            self.msk_fnames.extend([file])
             else:
                 # remove previous results
                 if os.path.isdir(traj_folder):
@@ -186,25 +195,42 @@ class Dataset(torch.utils.data.Dataset):
                 if self.max_lag > 0: traj_pcorr = sce.loc[traj_idx,:].corr(self.max_cross_correlation)
                 elif self.max_lag==0: traj_pcorr = sce.loc[traj_idx,:].corr(method='pearson')
 
-                # gene ablations
-                gmasks = dict()
+                # select gpairs in motif, optionally ablate (mask) genes
+                gmasks, gpair_select = dict(), np.array([''])
                 for g in itertools.product(sorted(set(g1)), sce.columns):
-                    if self.ablate=='none':
+                    if self.motif=='none':
+                        gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
                         gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                    elif self.ablate=='regulators':
+                    elif self.motif=='ffl-reg':
                         pair_reg = ref.loc[ref['Gene2'].str.lower().isin(g), 'Gene1']
                         pair_reg = pair_reg[ pair_reg.duplicated() ].str.lower().values
-                        gmasks[g] = ~sce.columns.isin(pair_reg)
-                    elif self.ablate=='targets':
-                        pair_targ = ref.loc[ref['Gene1'].str.lower().isin(g), 'Gene2']
-                        pair_targ = pair_targ[ pair_targ.duplicated() ].str.lower().values
-                        gmasks[g] = ~sce.columns.isin(pair_targ)
-                    elif self.ablate=='transitive':
+                        if pair_reg.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                        if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_reg)
+                        elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                    elif self.motif=='ffl-tgt':
+                        pair_tgt = ref.loc[ref['Gene1'].str.lower().isin(g), 'Gene2']
+                        pair_tgt = pair_tgt[ pair_tgt.duplicated() ].str.lower().values
+                        if pair_tgt.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                        if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_tgt)
+                        elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                    elif self.motif=='ffl-trans':
                         pair_trans = np.intersect1d(ref.loc[ref['Gene1'].str.lower()==g[0], 'Gene2'].str.lower().values,
                                                     ref.loc[ref['Gene2'].str.lower()==g[1], 'Gene1'].str.lower().values)
-                        gmasks[g] = ~sce.columns.isin(pair_trans)
+                        if pair_trans.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                        if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
+                        elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                    elif self.motif=='fbl-trans':
+                        pair_trans = np.intersect1d(ref.loc[ref['Gene1'].str.lower()==g[1], 'Gene2'].str.lower().values,
+                                                    ref.loc[ref['Gene2'].str.lower()==g[0], 'Gene1'].str.lower().values)
+                        if pair_trans.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                        if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
+                        elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                    elif self.motif=='mi-si':
+                        pair_si = ref.loc[(ref['Gene1'].str.lower()==g[1])&(ref['Gene2'].str.lower()==g[0]),:]
+                        if pair_si.shape[0]>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                        gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
 
-                # generate list of tuples containing all possible gene pairs, with neighbors
+                # generate list of tuples containing all possible gene pairs, including neighbors
                 gpairs = [tuple( list(g) + list(traj_pcorr.loc[g[0],(traj_pcorr.index.isin(g1)) &
                                                                     (~traj_pcorr.index.isin(g)) &
                                                                     (gmasks[g])
@@ -215,7 +241,7 @@ class Dataset(torch.utils.data.Dataset):
                                                                ].nlargest(self.neighbors).index) )
                           for g in itertools.product(sorted(set(g1)), sce.columns)]
 
-                # shuffle order of gene-pair-neighbor tuples
+                # shuffle order of gene_pair-neighbor tuples
                 seed = self.seed_from_string(traj_folder)
                 random.seed(seed); random.shuffle(gpairs)
 
@@ -225,24 +251,25 @@ class Dataset(torch.utils.data.Dataset):
                     gene_traj_pairs.append([0,2+i])
                     gene_traj_pairs.append([1,2+self.neighbors+i])
 
-                # number of gene-pair-neighbors, cells
+                # number of gene_pair-neighbors, cells
                 n, n_cells = len(gpairs), traj_idx.size
 
-                # batching gene-pair-neighbors
+                # batching gene_pair-neighbors
                 if self.batch_size is not None:
                     gpairs_batched = [list(x) for x in self.grouper(gpairs, self.batch_size)]
                     gpairs_batched = [list(filter(None, x)) for x in gpairs_batched]
                 else: gpairs_batched = [gpairs]
 
-                # loop over gene-pair-neighbor batches
+                # loop over gene_pair-neighbor batches
                 for j in range(len(gpairs_batched)):
                     X_fname = f"{traj_folder}/X_batch{j}_size{len(gpairs_batched[j])}.npy"
                     y_fname = f"{traj_folder}/y_batch{j}_size{len(gpairs_batched[j])}.npy"
+                    msk_fname = f"{traj_folder}/msk_batch{j}_size{len(gpairs_batched[j])}.npy"
 
-                    # flatten gene-pair-neighbors (list of tuples) to list
+                    # flatten gene_pair-neighbors (list of tuples) to list
                     gpairs_list = list(itertools.chain(*gpairs_batched[j]))
 
-                    # split batch into single gene-pair-neighbor examples
+                    # split batch into single gene_pair-neighbor examples
                     if self.batch_size is None or j==len(gpairs_batched)-1:
                         sce_list = np.array_split(sce.loc[traj_idx, gpairs_list].values, len(gpairs_batched[j]), axis=1)
                     else:
@@ -252,9 +279,10 @@ class Dataset(torch.utils.data.Dataset):
                     sce_list = [g_sce.reshape(1,2+2*self.neighbors,1,n_cells) for g_sce in sce_list]
                     X_batch = np.concatenate(sce_list, axis=0).astype(np.float32)
 
-                    # generate gene regulation labels y for mini-batch
+                    # generate gene regulation labels y, motif mask for mini-batch
                     gpairs_batched_1d = np.array(["%s %s" % x[:2] for x in gpairs_batched[j]])
                     y_batch = np.in1d(gpairs_batched_1d, ref_1d).reshape(X_batch.shape[0],1)
+                    msk_batch = np.in1d(gpairs_batched_1d, gpair_select).reshape(X_batch.shape[0],1)
 
                     # generate 2D gene-gene co-expression images from gene trajectory pairs
                     nchannels = len(gene_traj_pairs)*(1+self.max_lag)
@@ -281,18 +309,21 @@ class Dataset(torch.utils.data.Dataset):
                                 H /= np.sqrt((H.flatten()**2).sum())
                                 X_imgs[i,pair_idx*(1+self.max_lag)+lag,:,:] = H
 
-                    # save X, y to pickled numpy files
+                    # save X, y, mask to pickled numpy files
                     np.save(X_fname, X_imgs.astype(np.float32), allow_pickle=True)
                     np.save(y_fname, y_batch.astype(np.float32), allow_pickle=True)
+                    np.save(msk_fname, msk_batch.astype(np.float32), allow_pickle=True)
 
                     # save batch filenames for __len__ and __getitem__
                     idx = np.where(np.array(self.X_fnames) == None)[0]
                     if idx.size > 0:
                         self.X_fnames[idx[0]] = X_fname
                         self.y_fnames[idx[0]] = y_fname
+                        self.msk_fnames[idx[0]] = msk_fname
                     else:
                         self.X_fnames.extend([X_fname])
                         self.y_fnames.extend([y_fname])
+                        self.msk_fnames.extend([msk_fname])
 
 class Classifier(pl.LightningModule):
     """Deep neural network for binary classification of lagged gene-gene co-expression images"""
@@ -313,7 +344,7 @@ class Classifier(pl.LightningModule):
         return self.backbone(x)
 
     def training_step(self, train_batch, batch_idx):
-        X, y = train_batch
+        X, y, _ = train_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
         loss = F.binary_cross_entropy_with_logits(
@@ -328,7 +359,7 @@ class Classifier(pl.LightningModule):
         return loss
 
     def validation_step(self, val_batch, batch_idx, dataset_idx=0) -> None:
-        X, y = val_batch
+        X, y, _ = val_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
         loss = F.binary_cross_entropy_with_logits(
@@ -345,12 +376,14 @@ class Classifier(pl.LightningModule):
                  add_dataloader_idx=False)
 
     def test_step(self, test_batch, batch_idx, dataset_idx=0) -> None:
-        X, y = test_batch
+        X, y, msk = test_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
 
-        # update precision-recall curve
-        self.val_prc[dataset_idx](pred, y)
+        # update precision-recall curve (opt mask)
+        pred_msk = torch.masked_select(pred, msk>0)
+        y_msk = torch.masked_select(y, msk>0)
+        self.val_prc[dataset_idx](pred_msk, y_msk)
 
     def on_validation_epoch_end(self):
         val_auprc = torch.zeros((len(self.val_names),),
@@ -401,10 +434,14 @@ class Classifier(pl.LightningModule):
             fpr, tpr, _ = roc(preds, target, pos_label=1)
             auprc, auroc = auc(recall, precision), auc(fpr, tpr)
             test_auprc[idx] = auprc; test_auroc[idx] = auroc
+            density = target.sum() / target.size(0)
             self.log(f'_{name}_auprc', auprc,
                      sync_dist=True,
                      add_dataloader_idx=False)
             self.log(f'_{name}_auroc', auroc,
+                     sync_dist=True,
+                     add_dataloader_idx=False)
+            self.log(f'_{name}_density', density,
                      sync_dist=True,
                      add_dataloader_idx=False)
             self.val_prc[idx].reset()
@@ -453,7 +490,8 @@ if __name__ == '__main__':
     parser.add_argument('--shuffle_traj', type=float, default=0.)
     parser.add_argument('--ncells_traj', type=int, default=0)
     parser.add_argument('--dropout_traj', type=float, default=0.)
-    parser.add_argument('--ablate_genes', type=str, default='none')
+    parser.add_argument('--auc_motif', type=str, default='none')
+    parser.add_argument('--ablate_genes', type=get_bool, default=False)
     parser.add_argument('--lr_init', type=float, default=.1)
     parser.add_argument('--nn_dropout', type=float, default=0.)
     parser.add_argument('--model_cfg', type=str, default='')
@@ -492,6 +530,7 @@ if __name__ == '__main__':
                            shuffle=args.shuffle_traj,
                            ncells=args.ncells_traj,
                            dropout=args.dropout_traj,
+                           motif=args.auc_motif,
                            ablate=args.ablate_genes,
                            batchSize=args.batch_size,
                            overwrite=args.ovr_datasets,
@@ -559,7 +598,7 @@ if __name__ == '__main__':
     trainer = pl.Trainer(max_epochs=args.max_epochs,
                          deterministic=True,
                          accelerator='ddp',
-                         gpus=[1,],  #args.num_gpus,
+                         gpus=args.num_gpus, #[1,],
                          logger=logger,
                          callbacks=callbacks,
                          num_sanity_val_steps=0,
