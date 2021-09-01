@@ -380,10 +380,11 @@ class Classifier(pl.LightningModule):
         out = self.forward(X)
         pred = torch.sigmoid(out)
 
-        # update precision-recall curve (opt mask)
-        pred_msk = torch.masked_select(pred, msk>0)
-        y_msk = torch.masked_select(y, msk>0)
-        self.val_prc[dataset_idx](pred_msk, y_msk)
+        if msk.sum()>0:
+            # update precision-recall curve (opt mask)
+            pred_msk = torch.masked_select(pred, msk>0)
+            y_msk = torch.masked_select(y, msk>0)
+            self.val_prc[dataset_idx](pred_msk, y_msk)
 
     def on_validation_epoch_end(self):
         val_auprc = torch.zeros((len(self.val_names),),
