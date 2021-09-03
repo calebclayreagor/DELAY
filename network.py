@@ -43,6 +43,7 @@ class Dataset(torch.utils.data.Dataset):
                  dropout=0.,
                  motif='none',
                  ablate=False,
+                 mask_lag=-1,
                  overwrite=False,
                  load_prev=True,
                  verbose=False):
@@ -60,6 +61,7 @@ class Dataset(torch.utils.data.Dataset):
         self.dropout = dropout
         self.motif = motif
         self.ablate = ablate
+        self.masklag = mask_lag
 
         # get batch pathnames
         if self.load_prev==True:
@@ -225,7 +227,7 @@ class Dataset(torch.utils.data.Dataset):
                         if pair_trans.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
                         if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
                         elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                    elif self.motif=='mi-si':
+                    elif self.motif=='mi-simple':
                         pair_si = ref.loc[(ref['Gene1'].str.lower()==g[1])&(ref['Gene2'].str.lower()==g[0]),:]
                         if pair_si.shape[0]>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
                         gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
@@ -294,20 +296,24 @@ class Dataset(torch.utils.data.Dataset):
                         # loop over gene-gene trajectory pairs
                         for pair_idx in range(len(gene_traj_pairs)):
 
-                            # aligned gene-gene pair co-expression image
+                            # aligned gene-gene co-expression image
                             pair = gene_traj_pairs[pair_idx]
                             data = np.squeeze(X_batch[i,pair,:,:]).T
-                            H, _ = np.histogramdd(data, bins=(self.nbins,self.nbins))
-                            H /= np.sqrt((H.flatten()**2).sum())
-                            X_imgs[i,pair_idx*(1+self.max_lag),:,:] = H
-
-                            # lagged gene-gene pair co-expression images
-                            for lag in range(1,self.max_lag+1):
-                                data_lagged = np.concatenate((data[:-lag,0].reshape(-1,1),
-                                                              data[lag:,1].reshape(-1,1)), axis=1)
-                                H, _ = np.histogramdd(data_lagged, bins=(self.nbins,self.nbins))
+                            if self.masklag==0: pass
+                            else:
+                                H, _ = np.histogramdd(data, bins=(self.nbins,self.nbins))
                                 H /= np.sqrt((H.flatten()**2).sum())
-                                X_imgs[i,pair_idx*(1+self.max_lag)+lag,:,:] = H
+                                X_imgs[i,pair_idx*(1+self.max_lag),:,:] = H
+
+                            # lagged gene-gene co-expression images
+                            for lag in range(1,self.max_lag+1):
+                                if self.masklag==lag: pass
+                                else:
+                                    data_lagged = np.concatenate((data[:-lag,0].reshape(-1,1),
+                                                                  data[lag:,1].reshape(-1,1)), axis=1)
+                                    H, _ = np.histogramdd(data_lagged, bins=(self.nbins,self.nbins))
+                                    H /= np.sqrt((H.flatten()**2).sum())
+                                    X_imgs[i,pair_idx*(1+self.max_lag)+lag,:,:] = H
 
                     # save X, y, mask to pickled numpy files
                     np.save(X_fname, X_imgs.astype(np.float32), allow_pickle=True)
@@ -493,6 +499,7 @@ if __name__ == '__main__':
     parser.add_argument('--dropout_traj', type=float, default=0.)
     parser.add_argument('--auc_motif', type=str, default='none')
     parser.add_argument('--ablate_genes', type=get_bool, default=False)
+    parser.add_argument('--mask_lag', type=int, default=-1)
     parser.add_argument('--lr_init', type=float, default=.5)
     parser.add_argument('--nn_dropout', type=float, default=0.)
     parser.add_argument('--model_cfg', type=str, default='')
@@ -533,6 +540,7 @@ if __name__ == '__main__':
                            dropout=args.dropout_traj,
                            motif=args.auc_motif,
                            ablate=args.ablate_genes,
+                           mask_lag=args.mask_lag,
                            batchSize=args.batch_size,
                            overwrite=args.ovr_datasets,
                            load_prev=args.load_datasets)
@@ -565,8 +573,8 @@ if __name__ == '__main__':
     args.model_cfg = cfg
 
     nchans = (3+2*args.neighbors)*(1+args.max_lag)
-    # backbone = VGG(cfg=args.model_cfg, in_channels=nchans, dropout=args.nn_dropout)
-    backbone = VGG_CNNC(cfg=args.model_cfg, dropout=args.nn_dropout, in_channels=nchans) # in_channels=1
+    backbone = VGG(cfg=args.model_cfg, in_channels=nchans, dropout=args.nn_dropout)
+    # backbone = VGG_CNNC(cfg=args.model_cfg, dropout=args.nn_dropout, in_channels=nchans) # in_channels=1)
     # backbone = SiameseVGG(cfg=args.model_cfg, neighbors=args.neighbors, dropout=args.nn_dropout)
 
     if args.do_training==True:
