@@ -493,7 +493,7 @@ if __name__ == '__main__':
     parser.add_argument('--dropout_traj', type=float, default=0.)
     parser.add_argument('--auc_motif', type=str, default='none')
     parser.add_argument('--ablate_genes', type=get_bool, default=False)
-    parser.add_argument('--lr_init', type=float, default=.1)
+    parser.add_argument('--lr_init', type=float, default=.5)
     parser.add_argument('--nn_dropout', type=float, default=0.)
     parser.add_argument('--model_cfg', type=str, default='')
     parser.add_argument('--max_epochs', type=int, default=100)
@@ -565,8 +565,8 @@ if __name__ == '__main__':
     args.model_cfg = cfg
 
     nchans = (3+2*args.neighbors)*(1+args.max_lag)
-    backbone = VGG(cfg=args.model_cfg, in_channels=nchans, dropout=args.nn_dropout)
-    # backbone = VGG_CNNC(cfg=args.model_cfg, dropout=args.nn_dropout)
+    # backbone = VGG(cfg=args.model_cfg, in_channels=nchans, dropout=args.nn_dropout)
+    backbone = VGG_CNNC(cfg=args.model_cfg, dropout=args.nn_dropout, in_channels=nchans) # in_channels=1
     # backbone = SiameseVGG(cfg=args.model_cfg, neighbors=args.neighbors, dropout=args.nn_dropout)
 
     if args.do_training==True:

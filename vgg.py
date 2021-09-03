@@ -36,10 +36,10 @@ class VGG(nn.Module):
         return nn.Sequential(*layers)
 
 class VGG_CNNC(nn.Module):
-    def __init__(self, cfg, dropout):
+    def __init__(self, cfg, dropout, in_channels=1):
         super(VGG_CNNC, self).__init__()
         self.cfg = cfg
-        self.features = self.make_layers()
+        self.features = self.make_layers(in_channels)
         self.classifier = nn.Sequential(
                 nn.Linear(128*4*4, 512),
                 nn.ReLU(),
@@ -48,8 +48,9 @@ class VGG_CNNC(nn.Module):
         self._initialize_weights()
 
     def forward(self, x):
-        out = torch.unsqueeze(x[:,0,:,:], 1)
-        out = self.features(out)
+        if x.size(1)==1:
+            x = torch.unsqueeze(x[:,0,:,:], 1)
+        out = self.features(x)
         out = torch.flatten(out, 1)
         return self.classifier(out)
 
@@ -58,7 +59,7 @@ class VGG_CNNC(nn.Module):
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 nn.init.kaiming_uniform_(m.weight)
 
-    def make_layers(self, in_channels=1):
+    def make_layers(self, in_channels):
         layers: List[nn.Module] = []
         for v in self.cfg:
             if v == 'M':
