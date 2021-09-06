@@ -36,6 +36,7 @@ class Dataset(torch.utils.data.Dataset):
                  rel_path,
                  neighbors,
                  max_lag,
+                 mask_lags,
                  nbins,
                  batchSize=None,
                  shuffle=0.,
@@ -43,7 +44,6 @@ class Dataset(torch.utils.data.Dataset):
                  dropout=0.,
                  motif='none',
                  ablate=False,
-                 mask_lag=-1,
                  overwrite=False,
                  load_prev=True,
                  verbose=False):
@@ -55,13 +55,13 @@ class Dataset(torch.utils.data.Dataset):
         self.batch_size = batchSize
         self.neighbors = neighbors
         self.max_lag = max_lag
+        self.mask_lags = mask_lags
         self.nbins = nbins
         self.shuffle = shuffle
         self.ncells = ncells
         self.dropout = dropout
         self.motif = motif
         self.ablate = ablate
-        self.masklag = mask_lag
 
         # get batch pathnames
         if self.load_prev==True:
@@ -299,15 +299,13 @@ class Dataset(torch.utils.data.Dataset):
                             # aligned gene-gene co-expression image
                             pair = gene_traj_pairs[pair_idx]
                             data = np.squeeze(X_batch[i,pair,:,:]).T
-                            if self.masklag==0: pass
-                            else:
-                                H, _ = np.histogramdd(data, bins=(self.nbins,self.nbins))
-                                H /= np.sqrt((H.flatten()**2).sum())
-                                X_imgs[i,pair_idx*(1+self.max_lag),:,:] = H
+                            H, _ = np.histogramdd(data, bins=(self.nbins,self.nbins))
+                            H /= np.sqrt((H.flatten()**2).sum())
+                            X_imgs[i,pair_idx*(1+self.max_lag),:,:] = H
 
                             # lagged gene-gene co-expression images
                             for lag in range(1,self.max_lag+1):
-                                if self.masklag==lag: pass
+                                if self.mask_lags <= lag: pass
                                 else:
                                     data_lagged = np.concatenate((data[:-lag,0].reshape(-1,1),
                                                                   data[lag:,1].reshape(-1,1)), axis=1)
@@ -493,13 +491,13 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=512)
     parser.add_argument('--neighbors', type=int, default=2)
     parser.add_argument('--max_lag', type=int, default=5)
+    parser.add_argument('--mask_lags', type=str, default='none')
     parser.add_argument('--nbins_img', type=int, default=32)
     parser.add_argument('--shuffle_traj', type=float, default=0.)
     parser.add_argument('--ncells_traj', type=int, default=0)
     parser.add_argument('--dropout_traj', type=float, default=0.)
     parser.add_argument('--auc_motif', type=str, default='none')
     parser.add_argument('--ablate_genes', type=get_bool, default=False)
-    parser.add_argument('--mask_lag', type=int, default=-1)
     parser.add_argument('--lr_init', type=float, default=.5)
     parser.add_argument('--nn_dropout', type=float, default=0.)
     parser.add_argument('--model_cfg', type=str, default='')
@@ -510,6 +508,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.ovr_datasets==True: args.global_seed = 1234
+    if args.mask_lags=='none': args.mask_lags = args.max_lag + 1
+    else: args.mask_lags = int(args.mask_lags)
 
     # --------------------
     # training or testing
@@ -534,13 +534,13 @@ if __name__ == '__main__':
                            rel_path='*/ExpressionData.csv',
                            neighbors=args.neighbors,
                            max_lag=args.max_lag,
+                           mask_lags=args.mask_lags,
                            nbins=args.nbins_img,
                            shuffle=args.shuffle_traj,
                            ncells=args.ncells_traj,
                            dropout=args.dropout_traj,
                            motif=args.auc_motif,
                            ablate=args.ablate_genes,
-                           mask_lag=args.mask_lag,
                            batchSize=args.batch_size,
                            overwrite=args.ovr_datasets,
                            load_prev=args.load_datasets)
