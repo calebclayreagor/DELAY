@@ -30,7 +30,7 @@ from pytorch_lightning.metrics.functional      import auc, roc
 from vgg import VGG, VGG_CNNC, SiameseVGG
 
 class Dataset(torch.utils.data.Dataset):
-    """Generate & load dataset images"""
+    """Generate/load batches of images"""
     def __init__(self,
                  root_dir,
                  rel_path,
@@ -44,13 +44,11 @@ class Dataset(torch.utils.data.Dataset):
                  dropout=0.,
                  motif='none',
                  ablate=False,
-                 overwrite=False,
                  load_prev=True,
                  verbose=False):
 
         self.root_dir = root_dir
         self.rel_path = rel_path
-        self.overwrite = overwrite
         self.load_prev = load_prev
         self.batch_size = batchSize
         self.neighbors = neighbors
@@ -69,13 +67,12 @@ class Dataset(torch.utils.data.Dataset):
             self.X_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'X_*.npy'))]
             self.y_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'y_*.npy'))]
             self.msk_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'msk_*.npy'))]
-
         else:
-            # generate batch(es) for each cell-type lineage trajectory (X, y, mask)
+            # generate batches for each cell-type lineage (trajectory): X, y, mask
             self.sce_fnames = sorted(pathlib.Path(self.root_dir).glob(self.rel_path))
-            self.X_fnames = [None] * len(self.sce_fnames)
-            self.y_fnames = [None] * len(self.sce_fnames)
-            self.msk_fnames = [None] * len(self.sce_fnames)
+            self.X_fnames = [ None ] * len(self.sce_fnames)
+            self.y_fnames = [ None ] * len(self.sce_fnames)
+            self.msk_fnames = [ None ] * len(self.sce_fnames)
             for sce_fname in (tqdm(self.sce_fnames) if verbose else self.sce_fnames):
                 self.generate_batches(str(sce_fname))
 
@@ -113,221 +110,188 @@ class Dataset(torch.utils.data.Dataset):
         return corr[ corr.size//2 - self.max_lag : corr.size//2 ].max()
 
     def generate_batches(self, sce_fname):
-        """Generate batch(es) as .npy file(s) from sce"""
-        # generate batch(es) (>=1) for each lineage trajectory
+        """Generate batches as .npy files from sce file"""
+        # generate batches for each lineage (trajectory)
         sce_folder = '/'.join(sce_fname.split('/')[:-1])
         pt = pd.read_csv(f"{sce_folder}/PseudoTime.csv", index_col=0)
-        n_clusters, sce, ref, g1, g2 = pt.shape[1], None, None, None, None
 
-        # loop over lineage trajectories
+        # loop over trajectories
+        n_clusters = pt.shape[1]
         for k in range(n_clusters):
             traj_folder = f"{sce_folder}/traj{k+1}/"
 
-            # load previously generated batches for given lineage
-            if os.path.isdir(traj_folder) and self.overwrite==False:
-                # save batch filenames for __len__ and __getitem__
-                for file in sorted(glob.glob(f'{traj_folder}/*.npy')):
+            # remove previous results
+            if os.path.isdir(traj_folder):
+                shutil.rmtree(traj_folder)
+            os.mkdir(traj_folder)
 
-                    # save batch filename for expression data X
-                    if file.split('/')[-1][0]=='X':
-                        idx = np.where(np.array(self.X_fnames) == None)[0]
-                        if idx.size > 0:
-                            self.X_fnames[idx[0]] = file
-                        else:
-                            self.X_fnames.extend([file])
+            # print message for dataset
+            print(f"Generating batches for {'/'.join(sce_folder.split('/')[-2:])}...")
 
-                    # save batch filename for regulation labels y
-                    elif file.split('/')[-1][0]=='y':
-                        idx = np.where(np.array(self.y_fnames) == None)[0]
-                        if idx.size > 0:
-                            self.y_fnames[idx[0]] = file
-                        else:
-                            self.y_fnames.extend([file])
+            # load single cell experiment from data file
+            sce = pd.read_csv(sce_fname, index_col=0).T
 
-                    # save batch filename for motif masks array
-                    elif file.split('/')[-1][:3]=='msk':
-                        idx = np.where(np.array(self.msk_fnames) == None)[0]
-                        if idx.size > 0:
-                            self.msk_fnames[idx[0]] = file
-                        else:
-                            self.msk_fnames.extend([file])
-            else:
-                # remove previous results
-                if os.path.isdir(traj_folder):
-                    shutil.rmtree(traj_folder)
-                os.mkdir(traj_folder)
+            # convert gene names to lowercase
+            sce.columns = sce.columns.str.lower()
 
-                # print message for dataset
-                print(f"Generating batches for {'/'.join(sce_folder.split('/')[-2:])}...")
+            # get lineage (trajectory) indices, sorted by slingshot pseudotime values
+            traj_idx = pt.iloc[np.where(~pt.iloc[:,k].isnull())[0], k].sort_values().index
 
-                if sce is not None: pass
-                else:
-                    # load single cell experiment data from file
-                    sce = pd.read_csv(sce_fname, index_col=0).T
+            # shuffle pseudotime
+            if self.shuffle > 0.:
+                traj_idx = self.shuffle_pt(traj_idx, seed=None, df=True)
 
-                    # lowercase gene names
-                    sce.columns = sce.columns.str.lower()
+            # sample ncells (optional, only if traj > ncells)
+            if self.ncells > 0 and self.ncells < traj_idx.size:
+                traj_idx = traj_idx[np.sort(np.random.choice(np.arange(traj_idx.size), self.ncells, False))].copy()
 
-                # get lineage trajectory indices, sorted by slingshot pseudotime values
-                traj_idx = pt.iloc[np.where(~pt.iloc[:,k].isnull())[0], k].sort_values().index
+            # additional dropouts
+            if self.dropout > 0.:
+                below_cutoff = (sce.loc[traj_idx,:].values < sce.loc[traj_idx,:].quantile(self.dropout, axis=1).values[:,None])
+                drop = np.random.choice([0.,1.], p=[self.dropout,1-self.dropout], size=below_cutoff.shape)
+                sce.loc[traj_idx,:] *= (below_cutoff.astype(int) * drop + (~below_cutoff).astype(int))
 
-                # shuffle pseudotime
-                if self.shuffle > 0.:
-                    traj_idx = self.shuffle_pt(traj_idx, seed=None, df=True)
+            # load gene regulation labels from reference file
+            ref = pd.read_csv(f"{sce_folder}/refNetwork.csv")
+            g1 = [g.lower() for g in ref['Gene1'].values]
+            g2 = [g.lower() for g in ref['Gene2'].values]
+            ref_1d = np.array(["%s %s" % x for x in list(zip(g1,g2))])
 
-                # sample ncells (only if len(traj) > ncells)
-                if self.ncells > 0 and self.ncells < traj_idx.size:
-                    traj_idx = traj_idx[np.sort(np.random.choice(np.arange(traj_idx.size), self.ncells, False))].copy()
+            # trajectory pairwise gene correlations (max absolute cross corr or max pearson corr)
+            if self.max_lag > 0: traj_pcorr = sce.loc[traj_idx,:].corr(self.max_cross_correlation)
+            elif self.max_lag==0: traj_pcorr = sce.loc[traj_idx,:].corr(method='pearson')
 
-                # additional dropouts
-                if self.dropout > 0.:
-                    below_cutoff = (sce.loc[traj_idx,:].values < sce.loc[traj_idx,:].quantile(self.dropout, axis=1).values[:,None])
-                    drop = np.random.choice([0.,1.], p=[self.dropout,1-self.dropout], size=below_cutoff.shape)
-                    sce.loc[traj_idx,:] *= (below_cutoff.astype(int) * drop + (~below_cutoff).astype(int))
-
-                if ref is not None: pass
-                else:
-                    # load gene regulation labels from reference file
-                    ref = pd.read_csv(f"{sce_folder}/refNetwork.csv")
-                    g1 = [g.lower() for g in ref['Gene1'].values]
-                    g2 = [g.lower() for g in ref['Gene2'].values]
-                    ref_1d = np.array(["%s %s" % x for x in list(zip(g1,g2))])
-
-                # trajectory pairwise gene correlations: max absolute cross corr or max pearson corr
-                if self.max_lag > 0: traj_pcorr = sce.loc[traj_idx,:].corr(self.max_cross_correlation)
-                elif self.max_lag==0: traj_pcorr = sce.loc[traj_idx,:].corr(method='pearson')
-
-                # select gpairs in motif, optionally ablate (mask) genes
-                gmasks, gpair_select = dict(), np.array([''])
-                for g in itertools.product(sorted(set(g1)), sce.columns):
-                    if self.motif=='none':
-                        gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
-                        gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                    elif self.motif=='ffl-reg':
-                        pair_reg = ref.loc[ref['Gene2'].str.lower().isin(g), 'Gene1']
-                        pair_reg = pair_reg[ pair_reg.duplicated() ].str.lower().values
-                        if pair_reg.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
-                        if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_reg)
-                        elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                    elif self.motif=='ffl-tgt':
-                        pair_tgt = ref.loc[ref['Gene1'].str.lower().isin(g), 'Gene2']
-                        pair_tgt = pair_tgt[ pair_tgt.duplicated() ].str.lower().values
-                        if pair_tgt.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
-                        if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_tgt)
-                        elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                    elif self.motif=='ffl-trans':
-                        pair_trans = np.intersect1d(ref.loc[ref['Gene1'].str.lower()==g[0], 'Gene2'].str.lower().values,
-                                                    ref.loc[ref['Gene2'].str.lower()==g[1], 'Gene1'].str.lower().values)
-                        if pair_trans.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
-                        if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
-                        elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                    elif self.motif=='fbl-trans':
-                        pair_trans = np.intersect1d(ref.loc[ref['Gene1'].str.lower()==g[1], 'Gene2'].str.lower().values,
+            # select gpairs in motif, optionally ablate (mask) genes
+            gmasks, gpair_select = dict(), np.array([''])
+            for g in itertools.product(sorted(set(g1)), sce.columns):
+                if self.motif=='none':
+                    gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                    gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                elif self.motif=='ffl-reg':
+                    pair_reg = ref.loc[ref['Gene2'].str.lower().isin(g), 'Gene1']
+                    pair_reg = pair_reg[ pair_reg.duplicated() ].str.lower().values
+                    if pair_reg.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                    if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_reg)
+                    elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                elif self.motif=='ffl-tgt':
+                    pair_tgt = ref.loc[ref['Gene1'].str.lower().isin(g), 'Gene2']
+                    pair_tgt = pair_tgt[ pair_tgt.duplicated() ].str.lower().values
+                    if pair_tgt.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                    if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_tgt)
+                    elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                elif self.motif=='ffl-trans':
+                    pair_trans = np.intersect1d(ref.loc[ref['Gene1'].str.lower()==g[0], 'Gene2'].str.lower().values,
+                                                ref.loc[ref['Gene2'].str.lower()==g[1], 'Gene1'].str.lower().values)
+                    if pair_trans.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                    if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
+                    elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                elif self.motif=='fbl-trans':
+                    pair_trans = np.intersect1d(ref.loc[ref['Gene1'].str.lower()==g[1], 'Gene2'].str.lower().values,
                                                     ref.loc[ref['Gene2'].str.lower()==g[0], 'Gene1'].str.lower().values)
-                        if pair_trans.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
-                        if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
-                        elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                    elif self.motif=='mi-simple':
-                        pair_si = ref.loc[(ref['Gene1'].str.lower()==g[1])&(ref['Gene2'].str.lower()==g[0]),:]
-                        if pair_si.shape[0]>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
-                        gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                    if pair_trans.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                    if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
+                    elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                elif self.motif=='mi-simple':
+                    pair_si = ref.loc[(ref['Gene1'].str.lower()==g[1])&(ref['Gene2'].str.lower()==g[0]),:]
+                    if pair_si.shape[0]>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
+                    gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
 
-                # generate list of tuples containing all possible gene pairs, including neighbors
-                gpairs = [tuple( list(g) + list(traj_pcorr.loc[g[0],(traj_pcorr.index.isin(g1)) &
-                                                                    (~traj_pcorr.index.isin(g)) &
-                                                                    (gmasks[g])
-                                                               ].nlargest(self.neighbors).index)
-                                         + list(traj_pcorr.loc[g[1],(traj_pcorr.index.isin(g1)) &
-                                                                    (~traj_pcorr.index.isin(g)) &
-                                                                    (gmasks[g])
-                                                               ].nlargest(self.neighbors).index) )
-                          for g in itertools.product(sorted(set(g1)), sce.columns)]
+            # generate list of tuples with all possible TF/target gpairs (opt, w/ neighbors)
+            gpairs = [tuple( list(g) + list(traj_pcorr.loc[g[0],(traj_pcorr.index.isin(g1)) &
+                                                                (~traj_pcorr.index.isin(g)) &
+                                                                (gmasks[g])
+                                                            ].nlargest(self.neighbors).index)
+                                     + list(traj_pcorr.loc[g[1],(traj_pcorr.index.isin(g1)) &
+                                                                (~traj_pcorr.index.isin(g)) &
+                                                                (gmasks[g])
+                                                            ].nlargest(self.neighbors).index) )
+                      for g in itertools.product(sorted(set(g1)), sce.columns)]
 
-                # shuffle order of gene_pair-neighbor tuples
-                seed = self.seed_from_string(traj_folder)
-                random.seed(seed); random.shuffle(gpairs)
+            # shuffle order of TF/target gpairs
+            seed = self.seed_from_string(traj_folder)
+            random.seed(seed); random.shuffle(gpairs)
 
-                # list of gene-gene trajectory pair idxs
-                gene_traj_pairs = [[0,1],[0,0],[1,1]]
-                for i in range(self.neighbors):
-                    gene_traj_pairs.append([0,2+i])
-                    gene_traj_pairs.append([1,2+self.neighbors+i])
+            # indices for pairwise comparisons
+            gene_traj_pairs = [[0,1],[0,0],[1,1]]
+            for i in range(self.neighbors):
+                gene_traj_pairs.append([0,2+i])
+                gene_traj_pairs.append([1,2+self.neighbors+i])
 
-                # number of gene_pair-neighbors, cells
-                n, n_cells = len(gpairs), traj_idx.size
+            # number of TF/target gpairs, cells
+            n, n_cells = len(gpairs), traj_idx.size
 
-                # batching gene_pair-neighbors
-                if self.batch_size is not None:
-                    gpairs_batched = [list(x) for x in self.grouper(gpairs, self.batch_size)]
-                    gpairs_batched = [list(filter(None, x)) for x in gpairs_batched]
-                else: gpairs_batched = [gpairs]
+            # batching TF/target gpairs
+            if self.batch_size is not None:
+                gpairs_batched = [list(x) for x in self.grouper(gpairs, self.batch_size)]
+                gpairs_batched = [list(filter(None, x)) for x in gpairs_batched]
+            else: gpairs_batched = [gpairs]
 
-                # loop over gene_pair-neighbor batches
-                for j in range(len(gpairs_batched)):
-                    X_fname = f"{traj_folder}/X_batch{j}_size{len(gpairs_batched[j])}.npy"
-                    y_fname = f"{traj_folder}/y_batch{j}_size{len(gpairs_batched[j])}.npy"
-                    msk_fname = f"{traj_folder}/msk_batch{j}_size{len(gpairs_batched[j])}.npy"
+            # loop over batches of TF/target gpairs
+            for j in range(len(gpairs_batched)):
+                X_fname = f"{traj_folder}/X_batch{j}_size{len(gpairs_batched[j])}.npy"
+                y_fname = f"{traj_folder}/y_batch{j}_size{len(gpairs_batched[j])}.npy"
+                msk_fname = f"{traj_folder}/msk_batch{j}_size{len(gpairs_batched[j])}.npy"
 
-                    # flatten gene_pair-neighbors (list of tuples) to list
-                    gpairs_list = list(itertools.chain(*gpairs_batched[j]))
+                # flatten TF/target gpairs (list of tuples) to list
+                gpairs_list = list(itertools.chain(*gpairs_batched[j]))
 
-                    # split batch into single gene_pair-neighbor examples
-                    if self.batch_size is None or j==len(gpairs_batched)-1:
-                        sce_list = np.array_split(sce.loc[traj_idx, gpairs_list].values, len(gpairs_batched[j]), axis=1)
-                    else:
-                        sce_list = np.array_split(sce.loc[traj_idx, gpairs_list].values, self.batch_size, axis=1)
+                # split batch into single gpair examples (w/ neighbors)
+                if self.batch_size is None or j==len(gpairs_batched)-1:
+                    sce_list = np.array_split(sce.loc[traj_idx, gpairs_list].values, len(gpairs_batched[j]), axis=1)
+                else:
+                    sce_list = np.array_split(sce.loc[traj_idx, gpairs_list].values, self.batch_size, axis=1)
 
-                    # recombine re-shaped examples into full mini-batch
-                    sce_list = [g_sce.reshape(1,2+2*self.neighbors,1,n_cells) for g_sce in sce_list]
-                    X_batch = np.concatenate(sce_list, axis=0).astype(np.float32)
+                # recombine re-shaped examples into full mini-batch
+                sce_list = [g_sce.reshape(1,2+2*self.neighbors,1,n_cells) for g_sce in sce_list]
+                X_batch = np.concatenate(sce_list, axis=0).astype(np.float32)
 
-                    # generate gene regulation labels y, motif mask for mini-batch
-                    gpairs_batched_1d = np.array(["%s %s" % x[:2] for x in gpairs_batched[j]])
-                    y_batch = np.in1d(gpairs_batched_1d, ref_1d).reshape(X_batch.shape[0],1)
-                    msk_batch = np.in1d(gpairs_batched_1d, gpair_select).reshape(X_batch.shape[0],1)
+                # generate gene regulation labels (y) and motif mask (msk) for mini-batch
+                gpairs_batched_1d = np.array(["%s %s" % x[:2] for x in gpairs_batched[j]])
+                y_batch = np.in1d(gpairs_batched_1d, ref_1d).reshape(X_batch.shape[0],1)
+                msk_batch = np.in1d(gpairs_batched_1d, gpair_select).reshape(X_batch.shape[0],1)
 
-                    # generate 2D gene-gene co-expression images from gene trajectory pairs
-                    nchannels = len(gene_traj_pairs)*(1+self.max_lag)
-                    X_imgs = np.zeros((X_batch.shape[0], nchannels, self.nbins, self.nbins))
+                # generate 2D gene-gene co-expression images
+                nchannels = len(gene_traj_pairs) * (1 + self.max_lag)
+                X_imgs = np.zeros((X_batch.shape[0], nchannels, self.nbins, self.nbins))
 
-                    # loop over examples in batch
-                    for i in range(X_imgs.shape[0]):
+                # loop over examples in batch
+                for i in range(X_imgs.shape[0]):
 
-                        # loop over gene-gene trajectory pairs
-                        for pair_idx in range(len(gene_traj_pairs)):
+                    # loop over gene-gene pairwise comparisons
+                    for pair_idx in range(len(gene_traj_pairs)):
 
-                            # aligned gene-gene co-expression image
-                            pair = gene_traj_pairs[pair_idx]
-                            data = np.squeeze(X_batch[i,pair,:,:]).T
-                            H, _ = np.histogramdd(data, bins=(self.nbins,self.nbins))
-                            H /= np.sqrt((H.flatten()**2).sum())
-                            X_imgs[i,pair_idx*(1+self.max_lag),:,:] = H
+                        # aligned gene-gene co-expression image
+                        pair = gene_traj_pairs[pair_idx]
+                        data = np.squeeze(X_batch[i,pair,:,:]).T
+                        H, _ = np.histogramdd(data, bins=(self.nbins,self.nbins))
+                        H /= np.sqrt((H.flatten()**2).sum())
+                        X_imgs[i,pair_idx*(1+self.max_lag),:,:] = H
 
-                            # lagged gene-gene co-expression images
-                            for lag in range(1,self.max_lag+1):
-                                if self.mask_lags <= lag: pass
-                                else:
-                                    data_lagged = np.concatenate((data[:-lag,0].reshape(-1,1),
-                                                                  data[lag:,1].reshape(-1,1)), axis=1)
-                                    H, _ = np.histogramdd(data_lagged, bins=(self.nbins,self.nbins))
-                                    H /= np.sqrt((H.flatten()**2).sum())
-                                    X_imgs[i,pair_idx*(1+self.max_lag)+lag,:,:] = H
+                        # lagged gene-gene co-expression images
+                        for lag in range(1,self.max_lag+1):
+                            if self.mask_lags <= lag: pass
+                            else:
+                                data_lagged = np.concatenate((data[:-lag,0].reshape(-1,1),
+                                                              data[lag:,1].reshape(-1,1)), axis=1)
+                                H, _ = np.histogramdd(data_lagged, bins=(self.nbins,self.nbins))
+                                H /= np.sqrt((H.flatten()**2).sum())
+                                X_imgs[i,pair_idx*(1+self.max_lag)+lag,:,:] = H
 
-                    # save X, y, mask to pickled numpy files
-                    np.save(X_fname, X_imgs.astype(np.float32), allow_pickle=True)
-                    np.save(y_fname, y_batch.astype(np.float32), allow_pickle=True)
-                    np.save(msk_fname, msk_batch.astype(np.float32), allow_pickle=True)
+                # save X, y, mask to pickled numpy files
+                np.save(X_fname, X_imgs.astype(np.float32), allow_pickle=True)
+                np.save(y_fname, y_batch.astype(np.float32), allow_pickle=True)
+                np.save(msk_fname, msk_batch.astype(np.float32), allow_pickle=True)
 
-                    # save batch filenames for __len__ and __getitem__
-                    idx = np.where(np.array(self.X_fnames) == None)[0]
-                    if idx.size > 0:
-                        self.X_fnames[idx[0]] = X_fname
-                        self.y_fnames[idx[0]] = y_fname
-                        self.msk_fnames[idx[0]] = msk_fname
-                    else:
-                        self.X_fnames.extend([X_fname])
-                        self.y_fnames.extend([y_fname])
-                        self.msk_fnames.extend([msk_fname])
+                # save batch filenames for __len__ and __getitem__
+                idx = np.where(np.array(self.X_fnames) == None)[0]
+                if idx.size > 0:
+                    self.X_fnames[idx[0]] = X_fname
+                    self.y_fnames[idx[0]] = y_fname
+                    self.msk_fnames[idx[0]] = msk_fname
+                else:
+                    self.X_fnames.extend([X_fname])
+                    self.y_fnames.extend([y_fname])
+                    self.msk_fnames.extend([msk_fname])
 
 class Classifier(pl.LightningModule):
     """Deep neural network for binary classification of lagged gene-gene co-expression images"""
@@ -482,7 +446,6 @@ if __name__ == '__main__':
     parser.add_argument('--datasets_dir', type=str)
     parser.add_argument('--output_dir', type=str)
     parser.add_argument('--load_datasets', type=get_bool, default=True)
-    parser.add_argument('--ovr_datasets', type=get_bool, default=False)
     parser.add_argument('--do_training', type=get_bool, default=True)
     parser.add_argument('--do_testing', type=get_bool, default=False)
     parser.add_argument('--do_finetune', type=get_bool, default=False)
@@ -507,7 +470,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_gpus', type=int, default=2)
     args = parser.parse_args()
 
-    if args.ovr_datasets==True: args.global_seed = 1234
+    if args.load_datasets==False: args.global_seed = 1234
     if args.mask_lags=='none': args.mask_lags = args.max_lag + 1
     else: args.mask_lags = int(args.mask_lags)
 
@@ -542,7 +505,6 @@ if __name__ == '__main__':
                            motif=args.auc_motif,
                            ablate=args.ablate_genes,
                            batchSize=args.batch_size,
-                           overwrite=args.ovr_datasets,
                            load_prev=args.load_datasets)
 
             train_size = int(args.train_split * len(dset))
@@ -560,7 +522,7 @@ if __name__ == '__main__':
         val_loader[i] = DataLoader(validation[i], batch_size=None, num_workers=args.num_workers, pin_memory=True)
 
     if args.load_datasets==False:
-        sys.exit('Completed overwrite. Ctrl+C to quit, then run with load_datasets==True, ovr_datasets==False.')
+        sys.exit("Successfuly compiled datasets. To use, run with option load_datasets==True.")
 
     # ------
     # model
@@ -611,7 +573,7 @@ if __name__ == '__main__':
                          logger=logger,
                          callbacks=callbacks,
                          num_sanity_val_steps=0,
-                         plugins=[DDPPlugin(find_unused_parameters=False)],
+                         plugins=[ DDPPlugin(find_unused_parameters=False) ],
                          check_val_every_n_epoch=args.check_val_every_n_epoch)
 
     # ---------
