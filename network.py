@@ -231,6 +231,8 @@ class Dataset(torch.utils.data.Dataset):
                 X_fname = f"{traj_folder}/X_batch{j}_size{len(gpairs_batched[j])}.npy"
                 y_fname = f"{traj_folder}/y_batch{j}_size{len(gpairs_batched[j])}.npy"
                 msk_fname = f"{traj_folder}/msk_batch{j}_size{len(gpairs_batched[j])}.npy"
+                gnm_fname = f"{traj_folder}/gnames_batch{j}_size{len(gpairs_batched[j])}.csv"
+                R_fname = f"{traj_folder}/R_batch{j}_size{len(gpairs_batched[j])}.npy"
 
                 # flatten TF/target gpairs (list of tuples) to list
                 gpairs_list = list(itertools.chain(*gpairs_batched[j]))
@@ -245,17 +247,22 @@ class Dataset(torch.utils.data.Dataset):
                 sce_list = [g_sce.reshape(1,2+2*self.neighbors,1,n_cells) for g_sce in sce_list]
                 X_batch = np.concatenate(sce_list, axis=0).astype(np.float32)
 
-                # generate gene regulation labels (y) and motif mask (msk) for mini-batch
+                # gene regulation labels (y), motif mask (msk), gene names (gnm) and correlations (R) for batch
                 gpairs_batched_1d = np.array(["%s %s" % x[:2] for x in gpairs_batched[j]])
                 y_batch = np.in1d(gpairs_batched_1d, ref_1d).reshape(X_batch.shape[0],1)
                 msk_batch = np.in1d(gpairs_batched_1d, gpair_select).reshape(X_batch.shape[0],1)
+                gnm_batch = pd.DataFrame(index=np.arange(len(gpairs_batched[j])), columns=['GeneA', 'GeneB'])
+                R_batch = np.zeros((len(gpairs_batched[j]), (1 + self.max_lag)))
 
-                # generate 2D gene-gene co-expression images
+                # generate 2D gene-gene co-expression images (w/ gene names, correlations)
                 nchannels = len(gene_traj_pairs) * (1 + self.max_lag)
                 X_imgs = np.zeros((X_batch.shape[0], nchannels, self.nbins, self.nbins))
 
                 # loop over examples in batch
                 for i in range(X_imgs.shape[0]):
+
+                    # example gene names (gnm): gene A and gene B
+                    gnm_batch.iloc[i,:] = gpairs_batched_1d[i].upper().split(' ')
 
                     # loop over gene-gene pairwise comparisons
                     for pair_idx in range(len(gene_traj_pairs)):
@@ -267,6 +274,10 @@ class Dataset(torch.utils.data.Dataset):
                         H /= np.sqrt((H.flatten()**2).sum())
                         X_imgs[i,pair_idx*(1+self.max_lag),:,:] = H
 
+                        # corr: no lag
+                        if pair_idx==0:
+                            R_batch[i,0] = np.corrcoef(data.T)[0,1]
+
                         # lagged gene-gene co-expression images
                         for lag in range(1,self.max_lag+1):
                             if self.mask_lags <= lag: pass
@@ -277,10 +288,18 @@ class Dataset(torch.utils.data.Dataset):
                                 H /= np.sqrt((H.flatten()**2).sum())
                                 X_imgs[i,pair_idx*(1+self.max_lag)+lag,:,:] = H
 
-                # save X, y, mask to pickled numpy files
+                                # corr: lagged
+                                if pair_idx==0:
+                                    R_batch[i,lag] = np.corrcoef(data_lagged.T)[0,1]
+
+                # save X, y, msk, R to pickled numpy files
                 np.save(X_fname, X_imgs.astype(np.float32), allow_pickle=True)
                 np.save(y_fname, y_batch.astype(np.float32), allow_pickle=True)
                 np.save(msk_fname, msk_batch.astype(np.float32), allow_pickle=True)
+                np.save(R_fname, R_batch.astype(np.float32), allow_pickle=True)
+
+                # save gene names to csv file
+                gnm_batch.to_csv(gnm_fname, index=False)
 
                 # save batch filenames for __len__ and __getitem__
                 idx = np.where(np.array(self.X_fnames) == None)[0]
