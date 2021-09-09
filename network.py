@@ -26,7 +26,6 @@ from pytorch_lightning.plugins                 import DDPPlugin
 from pytorch_lightning.metrics.classification  import PrecisionRecallCurve as PRCurve
 from pytorch_lightning.metrics.functional      import precision_recall_curve as prc
 from pytorch_lightning.metrics.functional      import auc, roc
-from scipy.stats                               import spearmanr
 
 from vgg import VGG, VGG_CNNC, SiameseVGG
 
@@ -39,13 +38,13 @@ class Dataset(torch.utils.data.Dataset):
                  max_lag,
                  mask_lags,
                  nbins,
+                 mask_img='',
                  batchSize=None,
                  shuffle=0.,
                  ncells=0,
                  dropout=0.,
                  motif='none',
                  ablate=False,
-                 gene_corr='',
                  load_prev=True,
                  verbose=False):
 
@@ -57,12 +56,12 @@ class Dataset(torch.utils.data.Dataset):
         self.max_lag = max_lag
         self.mask_lags = mask_lags
         self.nbins = nbins
+        self.mask_img = mask_img
         self.shuffle = shuffle
         self.ncells = ncells
         self.dropout = dropout
         self.motif = motif
         self.ablate = ablate
-        self.gcorr = gene_corr
 
         # get batch pathnames
         if self.load_prev==True:
@@ -235,7 +234,6 @@ class Dataset(torch.utils.data.Dataset):
                 y_fname = f"{traj_folder}/y_batch{j}_size{len(gpairs_batched[j])}.npy"
                 msk_fname = f"{traj_folder}/msk_batch{j}_size{len(gpairs_batched[j])}.npy"
                 g_fname = f"{traj_folder}/g_batch{j}_size{len(gpairs_batched[j])}.npy"
-                r_fname = f"{traj_folder}/r_batch{j}_size{len(gpairs_batched[j])}.npy"
 
                 # flatten TF/target gpairs (list of tuples) to list
                 gpairs_list = list(itertools.chain(*gpairs_batched[j]))
@@ -250,13 +248,12 @@ class Dataset(torch.utils.data.Dataset):
                 sce_list = [g_sce.reshape(1,2+2*self.neighbors,1,n_cells) for g_sce in sce_list]
                 X_batch = np.concatenate(sce_list, axis=0).astype(np.float32)
 
-                # for batch: gene names, regulation labels, motif mask, correlations (optional)
+                # generate for batch: gene names, regulation labels, motif mask
                 gpairs_batched_1d = np.array(["%s %s" % x[:2] for x in gpairs_batched[j]])
                 y_batch = np.in1d(gpairs_batched_1d, ref_1d).reshape(X_batch.shape[0],1)
                 msk_batch = np.in1d(gpairs_batched_1d, gpair_select).reshape(X_batch.shape[0],1)
-                if self.gcorr!='': r_batch = np.zeros((len(gpairs_batched[j]), (1+self.max_lag)))
 
-                # generate 2D gene-gene co-expression images (w/ correlations, optional)
+                # generate 2D gene-gene co-expression images
                 nchannels = len(gene_traj_pairs) * (1+self.max_lag)
                 X_imgs = np.zeros((X_batch.shape[0], nchannels, self.nbins, self.nbins))
 
@@ -269,19 +266,15 @@ class Dataset(torch.utils.data.Dataset):
                         # aligned gene-gene co-expression image
                         pair = gene_traj_pairs[pair_idx]
                         data = np.squeeze(X_batch[i,pair,:,:]).T
-                        H, _ = np.histogramdd(data, bins=(self.nbins,self.nbins))
-                        H /= np.sqrt((H.flatten()**2).sum())
-                        X_imgs[i,pair_idx*(1+self.max_lag),:,:] = H
-
-                        # geneA-geneB correlation: no lag
-                        if pair_idx==0 and self.gcorr!='':
-                            if self.gcorr=='pearson': r = np.corrcoef(data.T)[0,1]
-                            elif self.gcorr=='spearman': r, _ = spearmanr(data)
-                            r_batch[i, 0] = r
+                        if 0 in self.mask_lags: pass
+                        else:
+                            H, _ = np.histogramdd(data, bins=(self.nbins,self.nbins))
+                            H /= np.sqrt((H.flatten()**2).sum())
+                            X_imgs[i,pair_idx*(1+self.max_lag),:,:] = H
 
                         # lagged gene-gene co-expression images
                         for lag in range(1,self.max_lag+1):
-                            if self.mask_lags <= lag: pass
+                            if lag in self.mask_lags: pass
                             else:
                                 data_lagged = np.concatenate((data[:-lag,0].reshape(-1,1),
                                                               data[lag:,1].reshape(-1,1)), axis=1)
@@ -289,19 +282,21 @@ class Dataset(torch.utils.data.Dataset):
                                 H /= np.sqrt((H.flatten()**2).sum())
                                 X_imgs[i,pair_idx*(1+self.max_lag)+lag,:,:] = H
 
-                                # geneA-geneB correlation: lagged
-                                if pair_idx==0 and self.gcorr!='':
-                                    if self.gcorr=='pearson': r = np.corrcoef(data_lagged.T)[0,1]
-                                    elif self.gcorr=='spearman': r, _ = spearmanr(data_lagged)
-                                    r_batch[i, lag] = r
+                # optionally, mask region
+                if self.mask_img=='off-off':
+                    X_imgs[:,:(1+self.max_lag),:(self.nbins//2),:(self.nbins//2)] = 0.
+                elif self.mask_img=='on-off':
+                    X_imgs[:,:(1+self.max_lag),(self.nbins//2):,:(self.nbins//2)] = 0.
+                elif self.mask_img=='off-on':
+                    X_imgs[:,:(1+self.max_lag),:(self.nbins//2),(self.nbins//2):] = 0.
+                elif self.mask_img=='on-on':
+                    X_imgs[:,:(1+self.max_lag),(self.nbins//2):,(self.nbins//2):] = 0.
 
-                # save X, y, msk, g, r (optional) to pickled numpy files
+                # save X, y, msk, g to pickled numpy files
                 np.save(X_fname, X_imgs.astype(np.float32), allow_pickle=True)
                 np.save(y_fname, y_batch.astype(np.float32), allow_pickle=True)
                 np.save(msk_fname, msk_batch.astype(np.float32), allow_pickle=True)
                 np.save(g_fname, gpairs_batched_1d.reshape(-1,1), allow_pickle=True)
-                if self.gcorr!='':
-                    np.save(r_fname, r_batch.astype(np.float32), allow_pickle=True)
 
                 # save batch filenames for __len__ and __getitem__
                 idx = np.where(np.array(self.X_fnames) == None)[0]
@@ -475,14 +470,14 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=512)
     parser.add_argument('--neighbors', type=int, default=2)
     parser.add_argument('--max_lag', type=int, default=5)
-    parser.add_argument('--mask_lags', type=str, default='none')
+    parser.add_argument('--mask_lags', type=str, default='')
     parser.add_argument('--nbins_img', type=int, default=32)
+    parser.add_argument('--mask_region', type=str, default='')
     parser.add_argument('--shuffle_traj', type=float, default=0.)
     parser.add_argument('--ncells_traj', type=int, default=0)
     parser.add_argument('--dropout_traj', type=float, default=0.)
     parser.add_argument('--auc_motif', type=str, default='none')
     parser.add_argument('--ablate_genes', type=get_bool, default=False)
-    parser.add_argument('--gene_corr_func', type=str, default='')
     parser.add_argument('--lr_init', type=float, default=.5)
     parser.add_argument('--nn_dropout', type=float, default=0.)
     parser.add_argument('--model_cfg', type=str, default='')
@@ -492,9 +487,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_gpus', type=int, default=2)
     args = parser.parse_args()
 
-    if args.load_datasets==False: args.global_seed = 1234
-    if args.mask_lags=='none': args.mask_lags = args.max_lag + 1
-    else: args.mask_lags = int(args.mask_lags)
+    if len(args.mask_lags)>0: args.mask_lags = [int(x) for x in args.mask_lags.split(',')]
+    else: args.mask_lags = []
 
     # --------------------
     # training or testing
@@ -505,6 +499,8 @@ if __name__ == '__main__':
     # -----
     # seed
     # -----
+    if args.load_datasets==False:
+        args.global_seed = 1234
     pl.seed_everything(args.global_seed)
 
     # ---------
@@ -521,12 +517,12 @@ if __name__ == '__main__':
                            max_lag=args.max_lag,
                            mask_lags=args.mask_lags,
                            nbins=args.nbins_img,
+                           mask_img=args.mask_region,
                            shuffle=args.shuffle_traj,
                            ncells=args.ncells_traj,
                            dropout=args.dropout_traj,
                            motif=args.auc_motif,
                            ablate=args.ablate_genes,
-                           gene_corr=args.gene_corr_func,
                            batchSize=args.batch_size,
                            load_prev=args.load_datasets)
 
