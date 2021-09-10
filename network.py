@@ -284,13 +284,13 @@ class Dataset(torch.utils.data.Dataset):
 
                 # optionally, mask region
                 if self.mask_img=='off-off':
-                    X_imgs[:,:(1+self.max_lag),:(self.nbins//2),:(self.nbins//2)] = 0.
+                    X_imgs[:,:,:(self.nbins//2),:(self.nbins//2)] = 0.
                 elif self.mask_img=='on-off':
-                    X_imgs[:,:(1+self.max_lag),(self.nbins//2):,:(self.nbins//2)] = 0.
+                    X_imgs[:,:,(self.nbins//2):,:(self.nbins//2)] = 0.
                 elif self.mask_img=='off-on':
-                    X_imgs[:,:(1+self.max_lag),:(self.nbins//2),(self.nbins//2):] = 0.
+                    X_imgs[:,:,:(self.nbins//2),(self.nbins//2):] = 0.
                 elif self.mask_img=='on-on':
-                    X_imgs[:,:(1+self.max_lag),(self.nbins//2):,(self.nbins//2):] = 0.
+                    X_imgs[:,:,(self.nbins//2):,(self.nbins//2):] = 0.
 
                 # save X, y, msk, g to pickled numpy files
                 np.save(X_fname, X_imgs.astype(np.float32), allow_pickle=True)
