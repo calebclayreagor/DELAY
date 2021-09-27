@@ -85,7 +85,7 @@ class Dataset(torch.utils.data.Dataset):
         X = np.load(self.X_fnames[idx], allow_pickle=True)
         y = np.load(self.y_fnames[idx], allow_pickle=True)
         msk = np.load(self.msk_fnames[idx], allow_pickle=True)
-        return X, y, msk
+        return X, y, msk, self.X_fnames[idx].split('X_')
 
     def seed_from_string(self, s):
         """Generate random seed given a string"""
@@ -282,15 +282,17 @@ class Dataset(torch.utils.data.Dataset):
                                 H /= np.sqrt((H.flatten()**2).sum())
                                 X_imgs[i,pair_idx*(1+self.max_lag)+lag,:,:] = H
 
-                # optionally, mask region
+                # optionally, mask region(s)
                 if self.mask_img=='off-off':
                     X_imgs[:,:,:(self.nbins//2),:(self.nbins//2)] = 0.
-                elif self.mask_img=='on-off':
+                if self.mask_img in ['on-off', 'on']:
                     X_imgs[:,:,(self.nbins//2):,:(self.nbins//2)] = 0.
-                elif self.mask_img=='off-on':
+                if self.mask_img in ['off-on', 'on']:
                     X_imgs[:,:,:(self.nbins//2),(self.nbins//2):] = 0.
-                elif self.mask_img=='on-on':
+                if self.mask_img in ['on-on', 'on']:
                     X_imgs[:,:,(self.nbins//2):,(self.nbins//2):] = 0.
+                if self.mask_img=='edges':
+                    X_imgs[:,:,0,:] = 0.; X_imgs[:,:,:,0] = 0.
 
                 # save X, y, msk, g to pickled numpy files
                 np.save(X_fname, X_imgs.astype(np.float32), allow_pickle=True)
@@ -328,7 +330,7 @@ class Classifier(pl.LightningModule):
         return self.backbone(x)
 
     def training_step(self, train_batch, batch_idx):
-        X, y, _ = train_batch
+        X, y, _, _ = train_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
         loss = F.binary_cross_entropy_with_logits(
@@ -343,7 +345,7 @@ class Classifier(pl.LightningModule):
         return loss
 
     def validation_step(self, val_batch, batch_idx, dataset_idx=0) -> None:
-        X, y, _ = val_batch
+        X, y, _, _ = val_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
         loss = F.binary_cross_entropy_with_logits(
@@ -360,9 +362,12 @@ class Classifier(pl.LightningModule):
                  add_dataloader_idx=False)
 
     def test_step(self, test_batch, batch_idx, dataset_idx=0) -> None:
-        X, y, msk = test_batch
+        X, y, msk, fname = test_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
+
+        pred_fname = fname[0] + f'pred_seed={self.hparams.global_seed}_' + fname[1]
+        np.save(pred_fname, pred.cpu().detach().numpy().astype(np.float32), allow_pickle=True)
 
         if msk.sum()>0:
             # update precision-recall curve (opt mask)
