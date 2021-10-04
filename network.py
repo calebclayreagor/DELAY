@@ -45,6 +45,8 @@ class Dataset(torch.utils.data.Dataset):
                  dropout=0.,
                  motif='none',
                  ablate=False,
+                 tf_ref=False,
+                 use_tf=False,
                  load_prev=True,
                  verbose=False):
 
@@ -62,6 +64,8 @@ class Dataset(torch.utils.data.Dataset):
         self.dropout = dropout
         self.motif = motif
         self.ablate = ablate
+        self.tf_ref = tf_ref
+        self.use_tf = use_tf
 
         # get batch pathnames
         if self.load_prev==True:
@@ -159,11 +163,22 @@ class Dataset(torch.utils.data.Dataset):
             g2 = [g.lower() for g in ref['Gene2'].values]
             ref_1d = np.array(["%s %s" % x for x in list(zip(g1,g2))])
 
+            # optionally, use TFs from separate reference file
+            if self.tf_ref==True:
+                tfs_ref = pd.read_csv(f"{sce_folder}/TranscriptionFactors.csv")
+                tf = [g.lower() for g in tfs_ref['Gene1'].values]
+
+                # optionally, use TFs as Gene1
+                if self.use_tf==True: g1 = tf.copy()
+
+            elif self.tf_ref==False:
+                tf = g1.copy()
+
             # trajectory pairwise gene correlations (max absolute cross corr or max pearson corr)
             if self.max_lag > 0: traj_pcorr = sce.loc[traj_idx,:].corr(self.max_cross_correlation)
             elif self.max_lag==0: traj_pcorr = sce.loc[traj_idx,:].corr(method='pearson')
 
-            # select gpairs in motif, optionally ablate (mask) genes
+            # select gpairs in motif, optionally ablate (i.e. mask) genes
             gmasks, gpair_select = dict(), np.array([''])
             for g in itertools.product(sorted(set(g1)), sce.columns):
                 if self.motif=='none':
@@ -199,11 +214,11 @@ class Dataset(torch.utils.data.Dataset):
                     gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
 
             # generate list of tuples with all possible TF/target gpairs (opt, w/ neighbors)
-            gpairs = [tuple( list(g) + list(traj_pcorr.loc[g[0],(traj_pcorr.index.isin(g1)) &
+            gpairs = [tuple( list(g) + list(traj_pcorr.loc[g[0],(traj_pcorr.index.isin(tf)) &
                                                                 (~traj_pcorr.index.isin(g)) &
                                                                 (gmasks[g])
                                                             ].nlargest(self.neighbors).index)
-                                     + list(traj_pcorr.loc[g[1],(traj_pcorr.index.isin(g1)) &
+                                     + list(traj_pcorr.loc[g[1],(traj_pcorr.index.isin(tf)) &
                                                                 (~traj_pcorr.index.isin(g)) &
                                                                 (gmasks[g])
                                                             ].nlargest(self.neighbors).index) )
@@ -375,6 +390,14 @@ class Classifier(pl.LightningModule):
             y_msk = torch.masked_select(y, msk>0)
             self.val_prc[dataset_idx](pred_msk, y_msk)
 
+    def predict_step(self, pred_batch, batch_idx, dataset_idx=0) -> None:
+        X, _, _, fname = pred_batch
+        out = self.forward(X)
+        pred = torch.sigmoid(out)
+
+        pred_fname = fname[0] + f'pred_seed={self.hparams.global_seed}_' + fname[1]
+        np.save(pred_fname, pred.cpu().detach().numpy().astype(np.float32), allow_pickle=True)
+
     def on_validation_epoch_end(self):
         val_auprc = torch.zeros((len(self.val_names),),
                     device=torch.cuda.current_device())
@@ -469,6 +492,7 @@ if __name__ == '__main__':
     parser.add_argument('--load_datasets', type=get_bool, default=True)
     parser.add_argument('--do_training', type=get_bool, default=True)
     parser.add_argument('--do_testing', type=get_bool, default=False)
+    parser.add_argument('--do_predict', type=get_bool, default=False)
     parser.add_argument('--do_finetune', type=get_bool, default=False)
     parser.add_argument('--model_dir', type=str, default='')
     parser.add_argument('--train_split', type=float, default=.7)
@@ -486,6 +510,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr_init', type=float, default=.5)
     parser.add_argument('--nn_dropout', type=float, default=0.)
     parser.add_argument('--model_cfg', type=str, default='')
+    parser.add_argument('--model_type', type=str, default='inverted-vgg')
     parser.add_argument('--max_epochs', type=int, default=100)
     parser.add_argument('--check_val_every_n_epoch', type=int, default=1)
     parser.add_argument('--num_workers', type=int, default=36)
@@ -495,11 +520,14 @@ if __name__ == '__main__':
     if len(args.mask_lags)>0: args.mask_lags = [int(x) for x in args.mask_lags.split(',')]
     else: args.mask_lags = []
 
-    # --------------------
-    # training or testing
-    # --------------------
-    if args.do_training==True:  prefix = 'val_'
+    # --------------------------------
+    # training, testing or prediction
+    # --------------------------------
+    prefix, callbacks = '', None
+    if args.do_training==True: prefix = 'val_'
     elif args.do_testing==True: prefix = 'test_'
+    elif args.do_predict==True:
+        args.train_split, args.check_val_every_n_epoch = 1., args.max_epochs + 1
 
     # -----
     # seed
@@ -528,15 +556,23 @@ if __name__ == '__main__':
                            dropout=args.dropout_traj,
                            motif=args.auc_motif,
                            ablate=args.ablate_genes,
+                           tf_ref=args.do_predict,
+                           use_tf=(not args.do_finetune),
                            batchSize=args.batch_size,
                            load_prev=args.load_datasets)
 
-            train_size = int(args.train_split * len(dset))
-            train_dset, val_dset = random_split(dset, [train_size, len(dset)-train_size],
-                                   generator=torch.Generator().manual_seed(args.global_seed))
-            val_names.append(prefix+'_'.join(item.split('/')[-2:]))
-            training.append(train_dset)
-            validation.append(val_dset)
+            # ----------------
+            # train/val split
+            # ----------------
+            if args.train_split < 1.0:
+                train_size = int(args.train_split * len(dset))
+                train_dset, val_dset = random_split(dset, [train_size, len(dset)-train_size],
+                                       generator=torch.Generator().manual_seed(args.global_seed))
+                val_names.append(prefix+'_'.join(item.split('/')[-2:]))
+                training.append(train_dset)
+                validation.append(val_dset)
+            else:
+                training.append(dset)
 
     training = ConcatDataset(training)
     train_loader = DataLoader(training, batch_size=None, shuffle=True, num_workers=args.num_workers, pin_memory=True)
@@ -556,17 +592,20 @@ if __name__ == '__main__':
         if item=='M': cfg.append('M')
         elif item=='D': cfg.append('D')
         else: cfg.append(int(item))
-    args.model_cfg = cfg
-
-    nchans = (3+2*args.neighbors)*(1+args.max_lag)
-    backbone = VGG(cfg=args.model_cfg, in_channels=nchans, dropout=args.nn_dropout)
-    # backbone = VGG_CNNC(cfg=args.model_cfg, dropout=args.nn_dropout, in_channels=nchans) # in_channels=1)
-    # backbone = SiameseVGG(cfg=args.model_cfg, neighbors=args.neighbors, dropout=args.nn_dropout)
+    args.model_cfg, nchans = cfg, (3+2*args.neighbors)*(1+args.max_lag)
+    if args.model_type=='inverted-vgg':
+        backbone = VGG(cfg=args.model_cfg, in_channels=nchans, dropout=args.nn_dropout)
+    elif args.model_type=='vgg-cnnc':
+        backbone = VGG_CNNC(cfg=args.model_cfg, in_channels=1, dropout=args.nn_dropout)
+    elif args.model_type=='siamese-vgg':
+        backbone = SiameseVGG(cfg=args.model_cfg, neighbors=args.neighbors, dropout=args.nn_dropout)
+    elif args.model_type=='vgg':
+        backbone = VGG_CNNC(cfg=args.model_cfg, in_channels=nchans, dropout=args.nn_dropout)
 
     if args.do_training==True:
         model = Classifier(args, backbone, val_names, prefix)
 
-    elif args.do_testing==True:
+    elif args.do_testing==True or args.do_predict==True:
         model = Classifier.load_from_checkpoint(args.model_dir,
                 backbone=backbone, val_names=val_names, prefix=prefix)
 
@@ -587,13 +626,19 @@ if __name__ == '__main__':
     elif args.do_testing==True:
         callbacks = [ LearningRateMonitor(logging_interval='epoch') ]
 
+    elif args.do_predict==True and args.do_finetune==True:
+        callbacks = [ LearningRateMonitor(logging_interval='epoch'),
+                      ModelCheckpoint(monitor='train_loss', mode='min', save_top_k=1,
+                      dirpath=f"lightning_logs/{args.output_dir}/",
+                      filename='{epoch}-{train_loss:.6f}') ]
+
     # --------
     # trainer
     # --------
     trainer = pl.Trainer(max_epochs=args.max_epochs,
                          deterministic=True,
                          accelerator='ddp',
-                         gpus=args.num_gpus, #[1,],
+                         gpus=args.num_gpus,
                          logger=logger,
                          callbacks=callbacks,
                          num_sanity_val_steps=0,
@@ -612,8 +657,24 @@ if __name__ == '__main__':
     elif args.do_testing==True:
         trainer.test(model, val_loader)
 
-        # ----------
-        # fintuning
-        # ----------
+        # -----------
+        # finetuning
+        # -----------
         if args.do_finetune==True:
             trainer.fit(model, train_loader, val_loader)
+
+    # -----------
+    # prediction
+    # -----------
+    elif args.do_predict==True:
+
+        # -----------
+        # finetuning
+        # -----------
+        if args.do_finetune==True:
+            trainer.fit(model, train_loader)
+
+        # -----------
+        # evaluation
+        # -----------
+        else: trainer.predict(model, train_loader)
