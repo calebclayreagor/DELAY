@@ -517,7 +517,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_gpus', type=int, default=2)
     args = parser.parse_args()
 
-    if len(args.mask_lags)>0: args.mask_lags = [int(x) for x in args.mask_lags.split(',')]
+    if len(args.mask_lags)>0:
+        args.mask_lags = [int(x) for x in args.mask_lags.split(',')]
     else: args.mask_lags = []
 
     # --------------------------------
@@ -526,8 +527,7 @@ if __name__ == '__main__':
     prefix, callbacks = '', None
     if args.do_training==True: prefix = 'val_'
     elif args.do_testing==True: prefix = 'test_'
-    elif args.do_predict==True:
-        args.train_split, args.check_val_every_n_epoch = 1., args.max_epochs + 1
+    elif args.do_predict==True: args.train_split = 1.
 
     # -----
     # seed
@@ -638,7 +638,7 @@ if __name__ == '__main__':
     trainer = pl.Trainer(max_epochs=args.max_epochs,
                          deterministic=True,
                          accelerator='ddp',
-                         gpus=args.num_gpus,
+                         gpus=args.num_gpus, #[1,],
                          logger=logger,
                          callbacks=callbacks,
                          num_sanity_val_steps=0,
