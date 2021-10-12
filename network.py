@@ -490,6 +490,7 @@ if __name__ == '__main__':
     parser.add_argument('--datasets_dir', type=str)
     parser.add_argument('--output_dir', type=str)
     parser.add_argument('--load_datasets', type=get_bool, default=True)
+    parser.add_argument('--data_type', type=str, default='scrna-seq')
     parser.add_argument('--do_training', type=get_bool, default=True)
     parser.add_argument('--do_testing', type=get_bool, default=False)
     parser.add_argument('--do_predict', type=get_bool, default=False)
@@ -521,6 +522,11 @@ if __name__ == '__main__':
         args.mask_lags = [int(x) for x in args.mask_lags.split(',')]
     else: args.mask_lags = []
 
+    if args.data_type=='scrna-seq':
+        data_fname = 'ExpressionData.csv'
+    elif args.data_type=='scatac-seq':
+        data_fname = 'AccessibilityData.csv'
+
     # --------------------------------
     # training, testing or prediction
     # --------------------------------
@@ -545,7 +551,7 @@ if __name__ == '__main__':
         if os.path.isdir(item):
 
             dset = Dataset(root_dir=item,
-                           rel_path='*/ExpressionData.csv',
+                           rel_path=f'*/{data_fname}',
                            neighbors=args.neighbors,
                            max_lag=args.max_lag,
                            mask_lags=args.mask_lags,
