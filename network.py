@@ -518,33 +518,35 @@ if __name__ == '__main__':
     parser.add_argument('--num_gpus', type=int, default=2)
     args = parser.parse_args()
 
-    if len(args.mask_lags)>0:
-        args.mask_lags = [int(x) for x in args.mask_lags.split(',')]
-    else: args.mask_lags = []
+    prefix, callbacks, cfg = '', None, []
 
-    if args.data_type=='scrna-seq':
-        data_fname = 'ExpressionData.csv'
-    elif args.data_type=='scatac-seq':
-        data_fname = 'AccessibilityData.csv'
-
-    # --------------------------------
-    # training, testing or prediction
-    # --------------------------------
-    prefix, callbacks = '', None
-    if args.do_training==True: prefix = 'val_'
-    elif args.do_testing==True: prefix = 'test_'
-    elif args.do_predict==True: args.train_split = 1.
-
-    # -----
-    # seed
-    # -----
+    # ---------
+    # set seed
+    # ---------
     if args.load_datasets==False:
         args.global_seed = 1234
     pl.seed_everything(args.global_seed)
 
-    # ---------
-    # datasets
-    # ---------
+    # -------------------------
+    # train split (prediction)
+    # -------------------------
+    if args.do_predict==True and args.do_finetune==False: args.train_split = 1.
+
+    # ------------------
+    # data type (fname)
+    # ------------------
+    if args.data_type=='scrna-seq': data_fname = 'ExpressionData.csv'
+    elif args.data_type=='scatac-seq': data_fname = 'AccessibilityData.csv'
+
+    # ------------------
+    # data augmentation
+    # ------------------
+    if len(args.mask_lags)>0: args.mask_lags = [int(x) for x in args.mask_lags.split(',')]
+    else: args.mask_lags = []
+
+    # ---------------------------
+    # datasets (train/val split)
+    # ---------------------------
     print('Loading datasets...')
     training, validation, val_names = [], [], []
     for item in tqdm(sorted(glob.glob(f'{args.datasets_dir}/*/*/*'))):
@@ -590,10 +592,9 @@ if __name__ == '__main__':
     if args.load_datasets==False:
         sys.exit("Successfuly compiled datasets. To use, run with load_datasets==True.")
 
-    # ------
-    # model
-    # ------
-    cfg = []
+    # ---------
+    # backbone
+    # ---------
     for item in args.model_cfg.split(','):
         if item=='M': cfg.append('M')
         elif item=='D': cfg.append('D')
@@ -608,10 +609,19 @@ if __name__ == '__main__':
     elif args.model_type=='vgg':
         backbone = VGG_CNNC(cfg=args.model_cfg, in_channels=nchans, dropout=args.nn_dropout)
 
+    # -------
+    # prefix
+    # -------
+    if args.do_training==True: prefix = 'val_'
+    elif args.do_testing==True: prefix = 'test_'
+    elif args.do_predict==True: prefix = 'pred_'
+
+    # ----------------------------
+    # model (init or pre-trained)
+    # ----------------------------
     if args.do_training==True:
         model = Classifier(args, backbone, val_names, prefix)
-
-    elif args.do_testing==True or args.do_predict==True:
+    else:
         model = Classifier.load_from_checkpoint(args.model_dir,
                 backbone=backbone, val_names=val_names, prefix=prefix)
 
@@ -623,64 +633,49 @@ if __name__ == '__main__':
     # ----------
     # callbacks
     # ----------
-    if args.do_training==True:
+    if args.do_training==True or args.do_finetune==True:
+        ckpt_fname = '{epoch}-{' + prefix + 'avg_auprc:.3f}-{' + prefix + 'avg_auroc:.3f}'
         callbacks = [ LearningRateMonitor(logging_interval='epoch'),
-                      ModelCheckpoint(monitor='val_avg_auc', mode='max', save_top_k=1,
-                      dirpath=f"lightning_logs/{args.output_dir}/",
-                      filename='{epoch}-{val_avg_auprc:.3f}-{val_avg_auroc:.3f}') ]
+                      ModelCheckpoint(monitor=f'{prefix}avg_auc', mode='max', save_top_k=1,
+                      dirpath=f"lightning_logs/{args.output_dir}/", filename=ckpt_fname) ]
 
-    elif args.do_testing==True:
-        callbacks = [ LearningRateMonitor(logging_interval='epoch') ]
-
-    elif args.do_predict==True and args.do_finetune==True:
-        callbacks = [ LearningRateMonitor(logging_interval='epoch'),
-                      ModelCheckpoint(monitor='train_loss', mode='min', save_top_k=1,
-                      dirpath=f"lightning_logs/{args.output_dir}/",
-                      filename='{epoch}-{train_loss:.6f}') ]
-
-    # --------
-    # trainer
-    # --------
-    trainer = pl.Trainer(max_epochs=args.max_epochs,
-                         deterministic=True,
-                         accelerator='ddp',
-                         gpus=args.num_gpus, #[1,],
-                         logger=logger,
-                         callbacks=callbacks,
-                         num_sanity_val_steps=0,
+    # -----------
+    # pl trainer
+    # -----------
+    trainer = pl.Trainer(max_epochs=args.max_epochs, deterministic=True,
+                         accelerator='ddp', gpus=args.num_gpus, #[1,],
+                         logger=logger, callbacks=callbacks, num_sanity_val_steps=0,
                          plugins=[ DDPPlugin(find_unused_parameters=False) ],
                          check_val_every_n_epoch=args.check_val_every_n_epoch)
 
-    # ---------
-    # training
-    # ---------
+    # ------------------------
+    # do_training (from init)
+    # ------------------------
     if args.do_training==True:
         trainer.fit(model, train_loader, val_loader)
 
-    # --------
-    # testing
-    # --------
+    # ------------------------------
+    # do_testing (from pre-trained)
+    # ------------------------------
     elif args.do_testing==True:
         trainer.test(model, val_loader)
 
-        # -----------
-        # finetuning
-        # -----------
+        # ------------
+        # do_finetune
+        # ------------
         if args.do_finetune==True:
             trainer.fit(model, train_loader, val_loader)
 
-    # -----------
-    # prediction
-    # -----------
+    # ---------------------------------
+    # do_prediction (from pre-trained)
+    # ---------------------------------
     elif args.do_predict==True:
 
-        # -----------
-        # finetuning
-        # -----------
+        # ------------
+        # do_finetune
+        # ------------
         if args.do_finetune==True:
-            trainer.fit(model, train_loader)
+            trainer.fit(model, train_loader, val_loader)
 
-        # -----------
-        # evaluation
-        # -----------
-        else: trainer.predict(model, train_loader)
+        elif args.do_finetune==False:
+            trainer.predict(model, train_loader)
