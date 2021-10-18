@@ -544,6 +544,13 @@ if __name__ == '__main__':
     if len(args.mask_lags)>0: args.mask_lags = [int(x) for x in args.mask_lags.split(',')]
     else: args.mask_lags = []
 
+    # -------
+    # prefix
+    # -------
+    if args.do_training==True: prefix = 'val_'
+    elif args.do_testing==True: prefix = 'test_'
+    elif args.do_predict==True: prefix = 'pred_'
+
     # ---------------------------
     # datasets (train/val split)
     # ---------------------------
@@ -608,13 +615,6 @@ if __name__ == '__main__':
         backbone = SiameseVGG(cfg=args.model_cfg, neighbors=args.neighbors, dropout=args.nn_dropout)
     elif args.model_type=='vgg':
         backbone = VGG_CNNC(cfg=args.model_cfg, in_channels=nchans, dropout=args.nn_dropout)
-
-    # -------
-    # prefix
-    # -------
-    if args.do_training==True: prefix = 'val_'
-    elif args.do_testing==True: prefix = 'test_'
-    elif args.do_predict==True: prefix = 'pred_'
 
     # ----------------------------
     # model (init or pre-trained)
