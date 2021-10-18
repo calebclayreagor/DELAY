@@ -622,7 +622,7 @@ if __name__ == '__main__':
     if args.do_training==True:
         model = Classifier(args, backbone, val_names, prefix)
     else:
-        model = Classifier.load_from_checkpoint(args.model_dir,
+        model = Classifier.load_from_checkpoint(args.model_dir, hparams=args,
                 backbone=backbone, val_names=val_names, prefix=prefix)
 
     # -------

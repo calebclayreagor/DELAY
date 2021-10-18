@@ -48,7 +48,7 @@ class VGG_CNNC(nn.Module):
         self._initialize_weights()
 
     def forward(self, x):
-        if x.size(1)==1:
+        if x.size(1)!=1:
             x = torch.unsqueeze(x[:,0,:,:], 1)
         out = self.features(x)
         out = torch.flatten(out, 1)
