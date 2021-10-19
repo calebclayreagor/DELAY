@@ -528,7 +528,7 @@ if __name__ == '__main__':
     pl.seed_everything(args.global_seed)
 
     # -------------------------
-    # train split (prediction)
+    # train_split (evaluation)
     # -------------------------
     if args.do_predict==True and args.do_finetune==False: args.train_split = 1.
 
@@ -634,9 +634,14 @@ if __name__ == '__main__':
     # callbacks
     # ----------
     if args.do_training==True or args.do_finetune==True:
-        ckpt_fname = '{epoch}-{' + prefix + 'avg_auprc:.3f}-{' + prefix + 'avg_auroc:.3f}'
-        callbacks = [ LearningRateMonitor(logging_interval='epoch'),
-                      ModelCheckpoint(monitor=f'{prefix}avg_auc', mode='max', save_top_k=1,
+        if args.train_split < 1.:
+            ckpt_fname = '{epoch}-{'+prefix+'avg_auprc:.3f}-{'+prefix+'avg_auroc:.3f}'
+            monitor, mode = f'{prefix}avg_auc', 'max'
+        else:
+            monitor, mode, ckpt_fname = 'train_loss', 'min', '{epoch}-{train_loss:.6f}'
+
+        callbacks = [ LearningRateMonitor(logging_interval='epoch'), ModelCheckpoint(
+                      monitor=monitor, mode=mode, save_top_k=1,
                       dirpath=f"lightning_logs/{args.output_dir}/", filename=ckpt_fname) ]
 
     # -----------
@@ -660,9 +665,9 @@ if __name__ == '__main__':
     elif args.do_testing==True:
         trainer.test(model, val_loader)
 
-        # ------------
-        # do_finetune
-        # ------------
+        # ------------------------------
+        # do_finetune (with validation)
+        # ------------------------------
         if args.do_finetune==True:
             trainer.fit(model, train_loader, val_loader)
 
@@ -671,11 +676,15 @@ if __name__ == '__main__':
     # ---------------------------------
     elif args.do_predict==True:
 
-        # ------------
-        # do_finetune
-        # ------------
+        # -----------------------------
+        # do_finetune (opt validation)
+        # -----------------------------
         if args.do_finetune==True:
-            trainer.fit(model, train_loader, val_loader)
+            if args.train_split==1.: trainer.fit(model, train_loader)
+            else: trainer.fit(model, train_loader, val_loader)
 
+        # ---------------------------
+        # evaluation (no validation)
+        # ---------------------------
         elif args.do_finetune==False:
             trainer.predict(model, train_loader)
