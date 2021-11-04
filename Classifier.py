@@ -1,7 +1,5 @@
-import pickle
-import torch
-import torch.nn as nn
-import numpy as np
+import torch, torch.nn as nn
+import pickle, numpy as np
 import pytorch_lightning as pl
 import torch.nn.functional as F
 

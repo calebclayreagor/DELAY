@@ -1,5 +1,4 @@
-import torch
-import torch.nn as nn
+import torch, torch.nn as nn
 
 class SiameseVGG(nn.Module):
     def __init__(self, cfg, neighbors, dropout):

@@ -1,5 +1,4 @@
-import torch
-import torch.nn as nn
+import torch, torch.nn as nn
 
 class VGG_CNNC(nn.Module):
     def __init__(self, cfg, dropout, in_channels=1):
