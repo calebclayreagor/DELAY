@@ -1,6 +1,6 @@
 # DELAY: DEpicting LAgged causalitY
 
-![Figure 1](figure-1.pdf)
+![Figure 1](figure-1.png)
 
 ## Example Usage
 
