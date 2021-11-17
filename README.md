@@ -1,4 +1,4 @@
-# DELAY: DEpicting LAgged causalitY in Single-Cell Trajectories for Gene Regulatory Inference 
+# DELAY: DEpicting LAgged causalitY Across Single-Cell Trajectories for Accurate Gene Regulatory Inference 
 
 ![Figure 1](DELAY.png)
 
