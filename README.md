@@ -4,7 +4,7 @@
 
 ## Example Usage
 
-### Preparing Single Cell Dataset(s) (Step 0)
+### Preparing A Single Cell Dataset(s) (Step 0)
 
 ```
 python Network.py --load_datasets False \
@@ -16,7 +16,7 @@ python Network.py --load_datasets False \
                   --nbins_img 32
 ```
 
-### Prediction (Using A Trained Model)
+### Using A Trained Model To Make Predictions
 
 ```
 python Network.py --do_training False \
