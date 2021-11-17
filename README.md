@@ -4,7 +4,7 @@
 
 ## Example Usage
 
-### Prepare Single Cell Dataset(s) (Step 0)
+### Preparing Single Cell Dataset(s) (Step 0)
 
 ```
 python Network.py --load_datasets False \
