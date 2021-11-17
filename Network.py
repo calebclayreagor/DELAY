@@ -30,8 +30,8 @@ if __name__ == '__main__':
     # arguments
     # ----------
     parser = argparse.ArgumentParser()
-    parser.add_argument('--global_seed', type=int)
-    parser.add_argument('--datasets_dir', type=str)
+    parser.add_argument('--global_seed', type=int, default=1010)
+    parser.add_argument('--datasets_dir', type=str, default='')
     parser.add_argument('--output_dir', type=str, default='')
     parser.add_argument('--load_datasets', type=get_bool, default=True)
     parser.add_argument('--data_type', type=str, default='scrna-seq')
