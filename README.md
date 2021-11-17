@@ -2,12 +2,11 @@
 
 ## Example Usage
 
-### Data Preparation
+### Prepare Data
 
 ```
 python Network.py --global_seed 1234 \
                   --datasets_dir /path/to/datasets/files/ \
-                  --output_dir /path/to/saved/outputs/ \
                   --load_datasets False \
                   --data_type scrna-seq \
                   --batch_size 512 \
