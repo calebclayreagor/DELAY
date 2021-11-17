@@ -5,9 +5,8 @@
 ### Prepare Data
 
 ```
-python Network.py --global_seed 1234 \
+python Network.py --load_datasets False \
                   --datasets_dir /path/to/datasets/files/ \
-                  --load_datasets False \
                   --data_type scrna-seq \
                   --batch_size 512 \
                   --neighbors 2 \
@@ -18,11 +17,10 @@ python Network.py --global_seed 1234 \
 ### Prediction
 
 ```
-python Network.py --global_seed 1010 \
-                  --datasets_dir /path/to/datasets/files/ \
-                  --output_dir /path/to/saved/outputs/ \
-                  --do_training False \
+python Network.py --do_training False \
                   --do_predict True \
+                  --datasets_dir /path/to/datasets/files/ \
+                  --output_dir /path/to/output/logs/ \
                   --model_dir /path/to/trained/model.ckpt \
                   --model_cfg 1024,M,512,M,256,M,128,M,64 \
                   --model_type inverted-vgg
