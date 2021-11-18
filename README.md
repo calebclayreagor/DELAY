@@ -53,7 +53,7 @@ python Network.py --do_training False \
                   --model_type inverted-vgg
 ```
 
-## Input Files and Structure
+## Required Input Files and Directory Structure
 
 ```
 data_split (e.g. training)\
