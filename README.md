@@ -52,7 +52,7 @@ python Network.py --do_training False \
                   --model_type inverted-vgg
 ```
 
-## Required Inputs
+## Input Files and Structure
 
 ```
 data_split (e.g. training)/
@@ -67,11 +67,11 @@ data_split (e.g. training)/
                 └── TranscriptionFactors.csv (optional)
 ```
 
-### ``ExpressionData.csv`` or ``AccessibilityData.csv``
+### ``ExpressionData.csv`` or ``AccessibilityData.csv`` (required)
 
 ``genes x cells`` matrix of normalized expression or accessibility values for scRNA-seq or scATAC-seq data, respectively
 
-### ``PseudoTime.csv``
+### ``PseudoTime.csv`` (required)
 
 ``cells x trajectories`` matrix of inferred pseudotime values, with the option to provide independent values for multiple lineages using different columns with headings ``PseudoTime1``, ``PseudoTime2``, etc.
 
