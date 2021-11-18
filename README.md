@@ -1,6 +1,6 @@
 # DELAY: DEpicting LAgged causalitY Across Single-Cell Trajectories for Accurate Gene Regulatory Inference
 
-![DELAY](DELAY.png)
+![DELAY](figures/DELAY.png)
 
 ## Example Usage
 
@@ -46,7 +46,7 @@ python Network.py --do_training False \
 
 ## Network Architecture
 
-![Network](network.png)
+![Network](figures/network.png)
 
 ## More Examples
 
@@ -79,3 +79,7 @@ python Network.py --do_training False \
                   --lr_init .5 \
                   --max_epochs 100            
 ```
+
+### Preprint
+
+![haircell-GRN](figures/haircell-GRN.png)
