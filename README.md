@@ -53,7 +53,7 @@ python Network.py --do_training False \
                   --model_type inverted-vgg
 ```
 
-## Required Input Files and Dataset Directory Structure
+## Input Files
 
 DELAY requires input folders and files for datasets to be structured and named as follows:
 
