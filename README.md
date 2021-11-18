@@ -4,8 +4,10 @@
 
 ## Quick Setup
 
+Navigate to where you want the cloned repository and run:
+
 ```
-$ git clone https://github.com/calebclayreagor/DELAY
+git clone https://github.com/calebclayreagor/DELAY
 ```
 
 ## Example Usage
