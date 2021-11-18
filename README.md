@@ -44,4 +44,6 @@ python Network.py --do_training False \
                   --model_type inverted-vgg
 ```
 
+## Network Overview
+
 ![Network](network.png)
