@@ -9,7 +9,7 @@ Navigate to the location where you want to clone the repository and run:
 ```
 $ git clone https://github.com/calebclayreagor/DELAY.git
 ```
-Alternatively, download the repository above and unzip in the desired location
+Alternatively, download the repository above and unzip in the desired location.
 
 ## Example Usage
 
