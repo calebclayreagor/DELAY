@@ -25,7 +25,7 @@ python Network.py --load_datasets False \
                   --nbins_img 32
 ```
 
-### Finetuning A Trained Model On New Datasets (Step 1)
+### Finetuning A Trained Model On A New Dataset (Step 1)
 
 ```
 python Network.py --do_training False \
