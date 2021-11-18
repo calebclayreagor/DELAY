@@ -16,7 +16,7 @@ python Network.py --load_datasets False \
                   --nbins_img 32
 ```
 
-### Finetuning A Trained Model On New Datasets
+### Finetuning A Trained Model On A New Dataset (Step 1)
 
 ```
 python Network.py --do_training False \
@@ -32,7 +32,7 @@ python Network.py --do_training False \
                   --max_epochs 100
 ```
 
-### Using A Trained Model To Make Predictions
+### Using A Finetuned Model To Make Predictions (Step 2)
 
 ```
 python Network.py --do_training False \
