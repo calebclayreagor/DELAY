@@ -52,6 +52,10 @@ python Network.py --do_training False \
                   --model_type inverted-vgg
 ```
 
+## Required Input Files and Folder Structure
+
+- ``ExpressionData.csv`` or ``AccessibilityData.csv``: ``genes`` (rows) ``x`` ``cells`` (columns) matrix of normalized expression (for scRNA-seq) or accessibility (for scATAC-seq) values
+
 ## Network Architecture
 
 ![Network](figures/network.png)
