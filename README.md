@@ -4,7 +4,7 @@
 
 ## Example Usage
 
-### Preparing A Single-Cell Dataset(s) (Step 0)
+### Preparing A Single-Cell Dataset (Step 0)
 
 ```
 python Network.py --load_datasets False \
@@ -14,6 +14,22 @@ python Network.py --load_datasets False \
                   --neighbors 2 \
                   --maxlag 5 \
                   --nbins_img 32
+```
+
+### Finetuning A Trained Model On New Datasets
+
+```
+python Network.py --do_training False \
+                  --do_predict True \
+                  --do_finetune True \
+                  --datasets_dir /path/to/datasets/files/ \
+                  --output_dir /path/to/logged/outputs/ \
+                  --model_dir /path/to/trained/model.ckpt \
+                  --model_cfg 1024,M,512,M,256,M,128,M,64 \
+                  --model_type inverted-vgg \
+                  --train_split 1. \
+                  --lr_init .5 \
+                  --max_epochs 100
 ```
 
 ### Using A Trained Model To Make Predictions
