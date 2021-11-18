@@ -13,7 +13,7 @@ Alternatively, download the repository above and unzip in the desired location
 
 ## Example Usage
 
-### Preparing A New Single-Cell Dataset For Use (Step 0)
+### Preparing A New Single-Cell Dataset For Inference (Step 0)
 
 ```
 python Network.py --load_datasets False \
