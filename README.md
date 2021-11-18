@@ -54,6 +54,19 @@ python Network.py --do_training False \
 
 ## Required Inputs
 
+```
+data_split (e.g. training)/
+└── data_type (e.g. experimental)/
+    └── cell_type (e.g. stem-cell)/
+        └── study_name (e.g. smith-et-al-2021) /
+            └── data_version (e.g. combined-samples)/
+                ├── ExpressionData.csv (for scRNA-seq)
+                ├── AccessibilityData.csv (for scATAC-seq)
+                ├── PseudoTime.csv
+                ├── refNetwork.csv
+                └── TranscriptionFactors.csv (optional)
+```
+
 ### ``ExpressionData.csv`` or ``AccessibilityData.csv``
 
 ``genes x cells`` matrix of normalized expression or accessibility values for scRNA-seq or scATAC-seq data, respectively
