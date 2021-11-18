@@ -53,9 +53,9 @@ python Network.py --do_training False \
                   --model_type inverted-vgg
 ```
 
-## Required Dataset Directory Structure and Input Files
+## Required Input Files and Dataset Directory Structure
 
-DELAY requires input dataset files to be structured and named as follows:
+DELAY requires input folders and files for datasets to be structured and named as follows:
 
 ```
 data_split (e.g. training)\
@@ -83,6 +83,8 @@ data_split (e.g. training)\
                 └── TranscriptionFactors.csv (optional, required for prediction)
                     └── > list of known transcription factors in single cell dataset
 ```
+
+
 
 ## Network Architecture
 
