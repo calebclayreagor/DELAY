@@ -54,7 +54,8 @@ python Network.py --do_training False \
 
 ## Required Input Files and Folder Structure
 
-- ``ExpressionData.csv`` or ``AccessibilityData.csv``: ``genes`` (rows) ``x`` ``cells`` (columns) matrix of normalized expression (for scRNA-seq) or accessibility (for scATAC-seq) values
+- ``ExpressionData.csv`` or ``AccessibilityData.csv``: ``genes x cells`` matrix of normalized expression values (for scRNA-seq) or accessibility values (for scATAC-seq), respectively
+- ``PseudoTime.csv``: ``cells x trajectories`` matrix of inferred pseudotime values, with the option to provide independent values for multiple lineages using different columns with headings ``PseudoTime1``, ``PseudoTime2``, etc.
 
 ## Network Architecture
 
