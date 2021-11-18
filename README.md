@@ -1,7 +1,6 @@
 # DELAY: DEpicting LAgged causalitY Across Single-Cell Trajectories for Accurate Gene Regulatory Inference
 
 ![DELAY](DELAY.png)
-![Network](network.png)
 
 ## Example Usage
 
@@ -44,3 +43,5 @@ python Network.py --do_training False \
                   --model_cfg 1024,M,512,M,256,M,128,M,64 \
                   --model_type inverted-vgg
 ```
+
+![Network](network.png)
