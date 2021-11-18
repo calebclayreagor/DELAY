@@ -4,7 +4,7 @@
 
 ## Example Usage
 
-### Preparing A Single-Cell Dataset (Step 0)
+### Preparing A New Single-Cell Dataset(s) (Step 0)
 
 ```
 python Network.py --load_datasets False \
@@ -16,7 +16,7 @@ python Network.py --load_datasets False \
                   --nbins_img 32
 ```
 
-### Finetuning A Trained Model On A New Dataset (Step 1)
+### Finetuning Trained Models On New Datasets (Step 1)
 
 ```
 python Network.py --do_training False \
@@ -32,7 +32,7 @@ python Network.py --do_training False \
                   --max_epochs 100
 ```
 
-### Using A Finetuned Model To Make Predictions (Step 2)
+### Using Finetuned Models To Make Predictions (Step 2)
 
 ```
 python Network.py --do_training False \
