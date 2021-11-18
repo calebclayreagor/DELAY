@@ -4,7 +4,7 @@
 
 ## Quick Setup
 
-Navigate to where you want the cloned repository and run:
+Navigate to the location where you want the repository saved and run:
 
 ```
 git clone https://github.com/calebclayreagor/DELAY
