@@ -8,7 +8,7 @@
 
 ```
 python Network.py --load_datasets False \
-                  --datasets_dir /full/path/to/dset/files/ \
+                  --datasets_dir /full/path/to/dset/ \
                   --data_type scrna-seq \
                   --batch_size 512 \
                   --neighbors 2 \
@@ -22,8 +22,8 @@ python Network.py --load_datasets False \
 python Network.py --do_training False \
                   --do_predict True \
                   --do_finetune True \
-                  --datasets_dir /full/path/to/dset/files/ \
-                  --output_dir relative/path/to/logs \
+                  --datasets_dir /full/path/to/dset/ \
+                  --output_dir relative/path/for/logs \
                   --model_dir /full/path/to/model.ckpt \
                   --model_cfg 1024,M,512,M,256,M,128,M,64 \
                   --model_type inverted-vgg \
@@ -37,8 +37,8 @@ python Network.py --do_training False \
 ```
 python Network.py --do_training False \
                   --do_predict True \
-                  --datasets_dir /full/path/to/dset/files/ \
-                  --output_dir relative/path/to/logs \
+                  --datasets_dir /full/path/to/dset/ \
+                  --output_dir relative/path/for/logs \
                   --model_dir /full/path/to/model.ckpt \
                   --model_cfg 1024,M,512,M,256,M,128,M,64 \
                   --model_type inverted-vgg
