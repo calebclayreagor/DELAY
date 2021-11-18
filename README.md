@@ -55,25 +55,24 @@ python Network.py --do_training False \
 ## Input Files and Structure
 
 ```
-data_split (e.g. training)/
-└── data_type (e.g. experimental)/
-    └── cell_type (e.g. stem-cell)/
-        └── study_name (e.g. smith-et-al-2021) /
-            └── data_version (e.g. combined-samples)/
-                ├── ExpressionData.csv (for scRNA-seq)
-                ├── AccessibilityData.csv (for scATAC-seq)
-                ├── PseudoTime.csv
-                ├── refNetwork.csv
-                └── TranscriptionFactors.csv (optional)
+data_split (e.g. training)\
+└── data_type (e.g. experimental)\
+    └── cell_type (e.g. stem-cell)\
+        └── study_name (e.g. smith-et-al-2021)\ 
+            └── data_version (e.g. combined-samples)\
+                ├── ExpressionData.csv (required for scRNA-seq datasets)
+                │   └── > ``genes x cells`` matrix of normalized expression values 
+                ├── AccessibilityData.csv (required for scATAC-seq datasets)
+                │   └── > ``genes x cells`` matrix of normalized accessibility values
+                ├── PseudoTime.csv (required)
+                │   └── > ``cells x trajectories`` matrix of inferred pseudotime values
+                ├── refNetwork.csv (optional, required for training or finetuning)
+                │   └── > ground truth network of known transcription factor/target pairs
+                └── TranscriptionFactors.csv (optional, required for prediction)
+                    └── > list of known transcription factors in single cell dataset
 ```
 
-### ``ExpressionData.csv`` or ``AccessibilityData.csv`` (required)
-
-``genes x cells`` matrix of normalized expression or accessibility values for scRNA-seq or scATAC-seq data, respectively
-
-### ``PseudoTime.csv`` (required)
-
-``cells x trajectories`` matrix of inferred pseudotime values, with the option to provide independent values for multiple lineages using different columns with headings ``PseudoTime1``, ``PseudoTime2``, etc.
+Optionally, provide independent pseudotime values for multiple lineages using different columns with headings ``PseudoTime1``, ``PseudoTime2``, etc.
 
 ## Network Architecture
 
