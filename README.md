@@ -53,7 +53,9 @@ python Network.py --do_training False \
                   --model_type inverted-vgg
 ```
 
-## Required Directory Structure and Input Files
+## Required Dataset Directory Structure and Input Files
+
+DELAY requires input dataset files to be structured and named as follows:
 
 ```
 data_split (e.g. training)\
@@ -62,7 +64,7 @@ data_split (e.g. training)\
     │
     └── cell_type (e.g. stem-cell)\
         │
-        └── study_name (e.g. smith-et-al-2021)\ 
+        └── study_name (e.g. velez-et-al-2021)\ 
             │
             └── data_version (e.g. combined-samples)\
                 │
@@ -81,8 +83,6 @@ data_split (e.g. training)\
                 └── TranscriptionFactors.csv (optional, required for prediction)
                     └── > list of known transcription factors in single cell dataset
 ```
-
-Optionally, provide independent pseudotime values for multiple lineages using different columns with headings ``PseudoTime1``, ``PseudoTime2``, etc.
 
 ## Network Architecture
 
