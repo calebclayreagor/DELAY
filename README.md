@@ -2,6 +2,12 @@
 
 ![DELAY](figures/DELAY.png)
 
+## Quick Setup
+
+```
+$ git clone https://github.com/calebclayreagor/DELAY
+```
+
 ## Example Usage
 
 ### Preparing A New Single-Cell Dataset For Use (Step 0)
