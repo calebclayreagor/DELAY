@@ -8,7 +8,7 @@
 
 ```
 python Network.py --load_datasets False \
-                  --datasets_dir /path/to/dset/files/ \
+                  --datasets_dir /full/path/to/dset/files/ \
                   --data_type scrna-seq \
                   --batch_size 512 \
                   --neighbors 2 \
@@ -16,15 +16,15 @@ python Network.py --load_datasets False \
                   --nbins_img 32
 ```
 
-### Finetuning Trained Models On New Datasets (Step 1)
+### Finetuning Trained Models On A New Dataset (Step 1)
 
 ```
 python Network.py --do_training False \
                   --do_predict True \
                   --do_finetune True \
-                  --datasets_dir /path/to/dset/files/ \
-                  --output_dir /path/to/logged/outputs/ \
-                  --model_dir /path/to/trained/model.ckpt \
+                  --datasets_dir /full/path/to/dset/files/ \
+                  --output_dir relative/path/to/logs \
+                  --model_dir /full/path/to/model.ckpt \
                   --model_cfg 1024,M,512,M,256,M,128,M,64 \
                   --model_type inverted-vgg \
                   --train_split 1. \
@@ -37,9 +37,9 @@ python Network.py --do_training False \
 ```
 python Network.py --do_training False \
                   --do_predict True \
-                  --datasets_dir /path/to/dset/files/ \
-                  --output_dir /path/to/logged/outputs/ \
-                  --model_dir /path/to/trained/model.ckpt \
+                  --datasets_dir /full/path/to/dset/files/ \
+                  --output_dir relative/path/to/logs \
+                  --model_dir /full/path/to/model.ckpt \
                   --model_cfg 1024,M,512,M,256,M,128,M,64 \
                   --model_type inverted-vgg
 ```
