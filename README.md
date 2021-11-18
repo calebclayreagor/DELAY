@@ -80,6 +80,6 @@ python Network.py --do_training False \
                   --max_epochs 100            
 ```
 
-## Read the Paper
+## Read the Preprint
 
 ![haircell-GRN](figures/haircell-GRN.png)
