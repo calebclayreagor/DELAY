@@ -55,7 +55,7 @@ python Network.py --do_training False \
 
 ## Input Files
 
-DELAY requires input folders and files for datasets to be structured and named as follows:
+DELAY requires input folders and files for datasets to be structured and named in the following manner:
 
 ```
 data_split (e.g. training)\
