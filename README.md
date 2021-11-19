@@ -18,7 +18,7 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 
 ## How To Use
 
-### Finetuning trained models on new single-cell datasets (Step 1)
+### Finetune a trained model on a new single-cell dataset (Step 1)
 
 ```
 # Prepare mini-batches of known TF-target examples, then finetune
