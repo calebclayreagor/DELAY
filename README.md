@@ -58,13 +58,9 @@ DELAY requires input folders and files for datasets to be structured and named i
 
 ```
 data_split (e.g. training)\
-│
 └── data_type (e.g. experimental)\
-    │
     └── cell_type (e.g. stem-cell)\
-        │
         └── study_name (e.g. velez-et-al-2021)\ 
-            │
             └── data_version (e.g. combined-samples)\
                 │
                 ├── ExpressionData.csv (required for scRNA-seq datasets)
