@@ -18,7 +18,7 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 
 ## How To Use
 
-### Finetune DELAY models on single-cell datasets with partially-known ground truths (Step 1)
+### 1. Finetune DELAY models on single-cell datasets with partially-known ground truths
 
 ```
 # Prepare mini-batches of known TF-target examples from ground truth data (e.g. ChIP-seq)
@@ -48,7 +48,7 @@ python Network.py --global_seed 1010 \
                   --max_epochs 100
 ```
 
-### Using a finetuned model to make predictions on dataset TF-target pairs of interest (Step 2)
+### 2. Using a finetuned model to make predictions on dataset TF-target pairs of interest
 
 ```
 python Network.py --do_training False \
