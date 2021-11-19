@@ -18,9 +18,10 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 
 ## How To Use
 
-### Preparing a new single-cell dataset for inference (Step 0)
+### Finetuning trained models on a new dataset (Step 1)
 
 ```
+# Preparing the new single-cell dataset for inference
 python Network.py --load_datasets False \
                   --datasets_dir /full/path/to/dsets/ \
                   --data_type scrna-seq \
@@ -28,11 +29,7 @@ python Network.py --load_datasets False \
                   --neighbors 2 \
                   --maxlag 5 \
                   --nbins_img 32
-```
 
-### Finetuning a trained model on the new dataset (Step 1)
-
-```
 python Network.py --do_training False \
                   --do_predict True \
                   --do_finetune True \
