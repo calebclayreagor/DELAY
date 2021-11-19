@@ -18,7 +18,7 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 
 ## How To Use
 
-### Preparing A New Single-Cell Dataset For Inference (Step 0)
+### Preparing a new single-cell dataset for inference (Step 0)
 
 ```
 python Network.py --load_datasets False \
@@ -30,7 +30,7 @@ python Network.py --load_datasets False \
                   --nbins_img 32
 ```
 
-### Finetuning A Trained Model On A New Dataset (Step 1)
+### Finetuning a trained model on a new dataset (Step 1)
 
 ```
 python Network.py --do_training False \
@@ -46,7 +46,7 @@ python Network.py --do_training False \
                   --max_epochs 100
 ```
 
-### Using A Finetuned Model To Make Predictions (Step 2)
+### Using a finetuned model to make predictions (Step 2)
 
 ```
 python Network.py --do_training False \
@@ -93,7 +93,7 @@ data_split (e.g. training)\
 
 ## More Examples
 
-### Training New Models From Scratch
+### Training new models from scratch
 
 ```
 python Network.py --global_seed 1010 \
@@ -106,7 +106,7 @@ python Network.py --global_seed 1010 \
                   --max_epochs 100    
 ```
 
-### Testing/Finetuning On Known Datasets
+### Testing/finetuning on known datasets
 
 ```
 python Network.py --do_training False \
