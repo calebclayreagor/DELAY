@@ -34,7 +34,7 @@ python Network.py --load_datasets False \
                   --maxlag 5 \
                   --nbins_img 32
 
-python Network.py --load_datasets True
+python Network.py --load_datasets True \
                   --do_training False \
                   --do_predict True \
                   --do_finetune True \
