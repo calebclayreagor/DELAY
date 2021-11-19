@@ -52,7 +52,7 @@ python DELAY.py --global_seed 1010 \
                 --max_epochs 100
 ```
 
-### Predicting gene regulation across all TF-target pairs using the finetuned models
+### Predicting gene regulation across all TF-target pairs using finetuned models
 
 ```
 # To prepare mini-batches of all possible TF-target pairs from the single-cell dataset
