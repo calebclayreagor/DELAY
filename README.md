@@ -26,54 +26,54 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 
 ```
 # To prepare mini-batches of known TF-target examples from ground truth data (e.g. ChIP-seq)
-python Network.py --load_datasets False \
-                  --do_training False \
-                  --do_predict True \
-                  --do_finetune True \
-                  --datasets_dir /full/path/to/dsets/ \
-                  --data_type scrna-seq \
-                  --batch_size 512 \
-                  --neighbors 2 \
-                  --maxlag 5 \
-                  --nbins_img 32
+python DELAY.py --load_datasets False \
+                --do_training False \
+                --do_predict True \
+                --do_finetune True \
+                --datasets_dir /full/path/to/dsets/ \
+                --data_type scrna-seq \
+                --batch_size 512 \
+                --neighbors 2 \
+                --maxlag 5 \
+                --nbins_img 32
                   
 # To finetune on full ground truth (only suitable if finetuning DELAY models on scRNA-seq data)
-python Network.py --global_seed 1010 \
-                  --do_training False \
-                  --do_predict True \
-                  --do_finetune True \
-                  --datasets_dir /full/path/to/dsets/ \
-                  --output_dir relative/path/for/logs \
-                  --model_dir /full/path/to/model.ckpt \
-                  --model_cfg 1024,M,512,M,256,M,128,M,64 \
-                  --model_type inverted-vgg \
-                  --train_split 1. \
-                  --lr_init .5 \
-                  --max_epochs 100
+python DELAY.py --global_seed 1010 \
+                --do_training False \
+                --do_predict True \
+                --do_finetune True \
+                --datasets_dir /full/path/to/dsets/ \
+                --output_dir relative/path/for/logs \
+                --model_dir /full/path/to/model.ckpt \
+                --model_cfg 1024,M,512,M,256,M,128,M,64 \
+                --model_type inverted-vgg \
+                --train_split 1. \
+                --lr_init .5 \
+                --max_epochs 100
 ```
 
 ### Predicting gene regulation across all TF-target pairs using the finetuned models
 
 ```
 # To prepare mini-batches of all possible TF-target pairs from the single-cell dataset
-python Network.py --load_datasets False \
-                  --do_training False \
-                  --do_predict True \
-                  --datasets_dir /full/path/to/dsets/ \
-                  --data_type scrna-seq \
-                  --batch_size 512 \
-                  --neighbors 2 \
-                  --maxlag 5 \
-                  --nbins_img 32
+python DELAY.py --load_datasets False \
+                --do_training False \
+                --do_predict True \
+                --datasets_dir /full/path/to/dsets/ \
+                --data_type scrna-seq \
+                --batch_size 512 \
+                --neighbors 2 \
+                --maxlag 5 \
+                --nbins_img 32
 
 # To predict the probability of regulation across each TF-target pair in the dataset
-python Network.py --do_training False \
-                  --do_predict True \
-                  --datasets_dir /full/path/to/dsets/ \
-                  --output_dir relative/path/for/logs \
-                  --model_dir /full/path/to/ft-model.ckpt \
-                  --model_cfg 1024,M,512,M,256,M,128,M,64 \
-                  --model_type inverted-vgg
+python DELAY.py --do_training False \
+                --do_predict True \
+                --datasets_dir /full/path/to/dsets/ \
+                --output_dir relative/path/for/logs \
+                --model_dir /full/path/to/ft-model.ckpt \
+                --model_cfg 1024,M,512,M,256,M,128,M,64 \
+                --model_type inverted-vgg
 ```
 
 ## Input Files
