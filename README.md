@@ -18,11 +18,10 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 
 ## How To Use
 
-### Finetune a trained model on a new single-cell dataset (Step 1)
+### Finetune a trained model on a new single-cell dataset with some ground truth (Step 1)
 
 ```
-# Prepare mini-batches of known TF-target examples, then finetune
-
+# Prepare mini-batches of known TF-target examples from ground truth data (e.g. ChIP-seq)
 python Network.py --load_datasets False \
                   --do_training False \
                   --do_predict True \
@@ -33,7 +32,8 @@ python Network.py --load_datasets False \
                   --neighbors 2 \
                   --maxlag 5 \
                   --nbins_img 32
-
+                  
+# Finetune on full ground truth (only suitable if finetuning DELAY models on scRNA-seq data)
 python Network.py --global_seed 1010 \
                   --do_training False \
                   --do_predict True \
@@ -48,7 +48,7 @@ python Network.py --global_seed 1010 \
                   --max_epochs 100
 ```
 
-### Using the finetuned model to make predictions (Step 2)
+### Using a finetuned model to make predictions on dataset TF-target pairs of interest (Step 2)
 
 ```
 python Network.py --do_training False \
