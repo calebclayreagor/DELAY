@@ -18,11 +18,15 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 
 ## How To Use
 
-### Finetuning trained models on a new dataset (Step 1)
+### Finetuning trained models on new single-cell datasets (Step 1)
 
 ```
-# Preparing the new single-cell dataset for inference
+# Prepare mini-batches of TF-target pairs, then finetune
+
 python Network.py --load_datasets False \
+                  --do_training False \
+                  --do_predict True \
+                  --do_finetune True \
                   --datasets_dir /full/path/to/dsets/ \
                   --data_type scrna-seq \
                   --batch_size 512 \
@@ -30,7 +34,8 @@ python Network.py --load_datasets False \
                   --maxlag 5 \
                   --nbins_img 32
 
-python Network.py --do_training False \
+python Network.py --load_datasets True
+                  --do_training False \
                   --do_predict True \
                   --do_finetune True \
                   --datasets_dir /full/path/to/dsets/ \
@@ -43,7 +48,7 @@ python Network.py --do_training False \
                   --max_epochs 100
 ```
 
-### Using a finetuned model to make predictions (Step 2)
+### Using the finetuned model to make predictions (Step 2)
 
 ```
 python Network.py --do_training False \
