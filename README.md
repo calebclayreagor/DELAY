@@ -10,9 +10,9 @@ Navigate to the location where you want to clone the repository and run:
 $ git clone https://github.com/calebclayreagor/DELAY.git
 ```
 
-The datasets used in this study are available here: https://doi.org/10.5281/zenodo.5711739
+The datasets used in this study are available for download here: https://doi.org/10.5281/zenodo.5711739
 
-Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo.5711792
+Saved model weights for DELAY are available for download here: https://doi.org/10.5281/zenodo.5711792
 
 ## How To Use
 
