@@ -13,11 +13,11 @@ from pytorch_lightning.callbacks               import LearningRateMonitor
 from pytorch_lightning.callbacks               import ModelCheckpoint
 from pytorch_lightning.plugins                 import DDPPlugin
 
-from Dataset import Dataset
-from Classifier import Classifier
-from .Networks.VGG_CNNC import VGG_CNNC
-from .Networks.SiameseVGG import SiameseVGG
-from .Networks.VGG import VGG
+from DELAY.Dataset import Dataset
+from DELAY.Classifier import Classifier
+from Networks.VGG_CNNC import VGG_CNNC
+from Networks.SiameseVGG import SiameseVGG
+from Networks.VGG import VGG
 
 if __name__ == '__main__':
 
