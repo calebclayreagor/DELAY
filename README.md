@@ -18,7 +18,7 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 
 ## How To Use
 
-### Finetune a trained model on a new single-cell dataset with partial ground truth (Step 1)
+### Finetune a trained model on new single-cell datasets with partial ground truths (Step 1)
 
 ```
 # Prepare mini-batches of known TF-target examples from ground truth data (e.g. ChIP-seq)
