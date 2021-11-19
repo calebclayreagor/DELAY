@@ -25,7 +25,7 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 ### Finetuning DELAY models on single-cell datasets with partially-known ground truths
 
 ```
-# Prepare mini-batches of known TF-target examples from ground truth data (e.g. ChIP-seq)
+# To prepare mini-batches of known TF-target examples from ground truth data (e.g. ChIP-seq)
 python Network.py --load_datasets False \
                   --do_training False \
                   --do_predict True \
@@ -37,7 +37,7 @@ python Network.py --load_datasets False \
                   --maxlag 5 \
                   --nbins_img 32
                   
-# Finetune on full ground truth (only suitable if finetuning DELAY models on scRNA-seq data)
+# To finetune on full ground truth (only suitable if finetuning DELAY models on scRNA-seq data)
 python Network.py --global_seed 1010 \
                   --do_training False \
                   --do_predict True \
@@ -55,7 +55,7 @@ python Network.py --global_seed 1010 \
 ### Predicting gene regulation across all TF-target pairs using the finetuned models
 
 ```
-# Prepare mini-batches of all possible TF-target pairs from the single-cell dataset
+# To prepare mini-batches of all possible TF-target pairs from the single-cell dataset
 python Network.py --load_datasets False \
                   --do_training False \
                   --do_predict True \
@@ -66,7 +66,7 @@ python Network.py --load_datasets False \
                   --maxlag 5 \
                   --nbins_img 32
 
-# Predict the probability of regulation across each TF-target pair in the dataset
+# To predict the probability of regulation across each TF-target pair in the dataset
 python Network.py --do_training False \
                   --do_predict True \
                   --datasets_dir /full/path/to/dsets/ \
