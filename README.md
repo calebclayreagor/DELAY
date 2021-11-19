@@ -48,7 +48,7 @@ python Network.py --global_seed 1010 \
                   --max_epochs 100
 ```
 
-### Predicting the probability of regulation $P(x)$ across all TF-target pairs-of-interest
+### Predicting the probability of regulation $`P(x)`$ across all TF-target pairs-of-interest
 
 ```
 python Network.py --do_training False \
