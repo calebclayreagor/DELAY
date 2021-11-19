@@ -62,7 +62,7 @@ python Network.py --load_datasets False \
                   --maxlag 5 \
                   --nbins_img 32
 
-# Predict the probability of regulation across all TF-target pairs in the dataset
+# Predict the probability of regulation across each TF-target pair in the dataset
 python Network.py --do_training False \
                   --do_predict True \
                   --datasets_dir /full/path/to/dsets/ \
