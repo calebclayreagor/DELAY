@@ -10,7 +10,9 @@ Navigate to the location where you want to clone the repository and run:
 $ git clone https://github.com/calebclayreagor/DELAY.git
 ```
 
-Check the requirements file to confirm that all dependencies are satisfied. Please note, DELAY is currently configured to support training and prediction exclusively on GPUs.
+Check the requirements file to confirm that all dependencies are satisfied. 
+
+Please note, DELAY currently supports training and prediction exclusively on GPUs.
 
 ### Downloads
 
