@@ -21,7 +21,7 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 ### Finetuning trained models on new single-cell datasets (Step 1)
 
 ```
-# Prepare mini-batches of known TF-target pairs, then finetune
+# Prepare mini-batches of known TF-target examples, then finetune
 
 python Network.py --load_datasets False \
                   --do_training False \
