@@ -48,14 +48,26 @@ python Network.py --global_seed 1010 \
                   --max_epochs 100
 ```
 
-### Predicting the probability of regulation for all TF-target pairs-of-interest
+### Predicting gene regulation across all TF-target pairs using the finetuned model
 
 ```
+# Prepare mini-batches of all possible TF-target pairs from the single-cell dataset
+python Network.py --load_datasets False \
+                  --do_training False \
+                  --do_predict True \
+                  --datasets_dir /full/path/to/dsets/ \
+                  --data_type scrna-seq \
+                  --batch_size 512 \
+                  --neighbors 2 \
+                  --maxlag 5 \
+                  --nbins_img 32
+
+# Predict the probability of regulation across all TF-target pairs in the dataset
 python Network.py --do_training False \
                   --do_predict True \
                   --datasets_dir /full/path/to/dsets/ \
                   --output_dir relative/path/for/logs \
-                  --model_dir /full/path/to/model.ckpt \
+                  --model_dir /full/path/to/ft-model.ckpt \
                   --model_cfg 1024,M,512,M,256,M,128,M,64 \
                   --model_type inverted-vgg
 ```
