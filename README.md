@@ -10,7 +10,7 @@ Navigate to the location where you want to clone the repository and run:
 $ git clone https://github.com/calebclayreagor/DELAY.git
 ```
 
-## Example Usage
+## How To Use
 
 ### Preparing A New Single-Cell Dataset For Inference (Step 0)
 
