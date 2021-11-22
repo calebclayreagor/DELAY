@@ -25,7 +25,7 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 ### Finetuning DELAY models on single-cell datasets with partially-known ground truths
 
 ```
-# To prepare mini-batches of known TF-target examples from ground truth data (e.g. ChIP-seq)
+# To prepare mini-batches of known TF-target pairs from ground truth data (e.g. ChIP-seq)
 python RunDELAY.py --load_datasets False \
                    --do_training False \
                    --do_predict True \
