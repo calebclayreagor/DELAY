@@ -81,6 +81,8 @@ python RunDELAY.py --global_seed 1010 \
                    --model_type inverted-vgg
 ```
 
+- DELAY will save the predicted probabilities as a ``tfs x genes`` .csv file in the ``output_dir``
+
 ## Input Files
 
 DELAY requires input folders and files for datasets to be structured and named in the following manner:
