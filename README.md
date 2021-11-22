@@ -56,7 +56,7 @@ python RunDELAY.py --global_seed 1010 \
 - For the best results, use the largest tolerable ``lr_init`` and ``max_epochs>=10^3`` (empirical observation)
 - By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
 
-### Predicting gene regulation across all TF-target pairs using finetuned models
+### Predicting gene regulation across all TF-target gene pairs using finetuned models
 
 ```
 # To prepare mini-batches of all possible TF-target pairs from the single-cell dataset
