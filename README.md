@@ -52,8 +52,8 @@ python RunDELAY.py --global_seed 1010 \
                    --max_epochs 100
 ```
 
-- Generally, use ``batch_size`` equal to the number of genes in the dataset to avoid training biases
-- For best results, use largest tolerable ``lr_init`` over thousands of epochs (empirical observation)
+- DELAY optimizes the class-weighted sum of the mini-batch loss (BCE Loss), scaled by the ``batch_size``
+- For best results, use the largest tolerable ``lr_init`` over thousands of epochs (empirical observation)
 - By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
 
 ### Predicting gene regulation across all TF-target pairs using finetuned models
