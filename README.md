@@ -112,10 +112,6 @@ data_split (e.g. training)\
             └── data_version (e.g. combined-samples)\
 ```  
 
-## Network Architecture
-
-![Network](figures/network.png)
-
 ## More Examples
 
 ### Training new models from scratch
