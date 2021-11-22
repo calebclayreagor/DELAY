@@ -52,7 +52,7 @@ python RunDELAY.py --global_seed 1010 \
                    --max_epochs 100
 ```
 
-- DELAY optimizes the class-weighted mini-batch sum-of-losses (BCE Loss), scaled by the ``batch_size``
+- DELAY optimizes the class-weighted sum-of-losses (BCE Loss) per mini-batch, scaled by ``batch_size``
 - For the best results, use the largest tolerable ``lr_init`` and ``max_epochs>=10^3`` (empirical observation)
 - By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
 
