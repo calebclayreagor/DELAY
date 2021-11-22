@@ -127,21 +127,10 @@ python Network.py --global_seed 1010 \
                   --max_epochs 100    
 ```
 
-### Testing/finetuning on known datasets
+### Finetuning with validation
 
 ```
-python Network.py --do_training False \
-                  --do_testing True \
-                  --do_finetune True \
-                  --global_seed 1010 \
-                  --datasets_dir /full/path/to/dsets/ \
-                  --output_dir relative/path/for/logs \
-                  --model_dir /full/path/to/model.ckpt \
-                  --model_cfg 32,32,M,64,64,M,128,128 \
-                  --model_type vgg
-                  --train_split .7 \
-                  --lr_init .5 \
-                  --max_epochs 100            
+stuff here     
 ```
 
 ## Read the Preprint
