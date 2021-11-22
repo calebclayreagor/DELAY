@@ -53,7 +53,7 @@ python RunDELAY.py --global_seed 1010 \
 ```
 
 - DELAY optimizes the class-weighted sum of the mini-batch loss (BCE Loss), scaled by the ``batch_size``
-- For the best results, use the largest tolerable ``lr_init`` over thousands of epochs (empirical observation)
+- For the best results, use the largest tolerable ``lr_init`` and ``max_epochs>$10^3$`` (empirical observation)
 - By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
 
 ### Predicting gene regulation across all TF-target pairs using finetuned models
