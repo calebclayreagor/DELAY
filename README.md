@@ -71,7 +71,7 @@ python RunDELAY.py --do_training False \
                    --do_predict True \
                    --datasets_dir /full/path/to/dsets/ \
                    --output_dir relative/path/for/logs \
-                   --model_dir /full/path/to/ft-model.ckpt \
+                   --model_dir /full/path/to/finetuned/model.ckpt \
                    --model_cfg 1024,M,512,M,256,M,128,M,64 \
                    --model_type inverted-vgg
 ```
