@@ -52,7 +52,7 @@ python RunDELAY.py --global_seed 1010 \
                    --max_epochs 100
 ```
 
-- By default, DELAY saves the single best model in ``lightning_logs/output_dir``
+- By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
 
 ### Predicting gene regulation across all TF-target pairs using finetuned models
 
