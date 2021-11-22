@@ -81,29 +81,29 @@ python DELAY.py --do_training False \
 DELAY requires input folders and files for datasets to be structured and named in the following manner:
 
 ```
+ExpressionData.csv (required for scRNA-seq datasets)
+``genes x cells`` matrix of normalized expression values 
+
+AccessibilityData.csv (required for scATAC-seq datasets)
+``genes x cells`` matrix of normalized accessibility values
+
+PseudoTime.csv (required)
+``cells x trajectories`` matrix of inferred pseudotime values
+
+refNetwork.csv (optional, required for training or finetuning)
+ground truth network of known transcription factor/target pairs
+
+TranscriptionFactors.csv (optional, required for prediction)
+list of known transcription factors in single cell dataset
+```
+
+```
 data_split (e.g. training)\
 └── data_type (e.g. experimental)\
     └── cell_type (e.g. stem-cell)\
         └── study_name (e.g. velez-et-al-2021)\ 
             └── data_version (e.g. combined-samples)\
-                │
-                ├── ExpressionData.csv (required for scRNA-seq datasets)
-                │   └── > ``genes x cells`` matrix of normalized expression values 
-                │
-                ├── AccessibilityData.csv (required for scATAC-seq datasets)
-                │   └── > ``genes x cells`` matrix of normalized accessibility values
-                │
-                ├── PseudoTime.csv (required)
-                │   └── > ``cells x trajectories`` matrix of inferred pseudotime values
-                │
-                ├── refNetwork.csv (optional, required for training or finetuning)
-                │   └── > ground truth network of known transcription factor/target pairs
-                │
-                └── TranscriptionFactors.csv (optional, required for prediction)
-                    └── > list of known transcription factors in single cell dataset
-```
-
-
+```  
 
 ## Network Architecture
 
