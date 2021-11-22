@@ -67,7 +67,8 @@ python RunDELAY.py --load_datasets False \
                    --nbins_img 32
 
 # To predict the probability of regulation across each TF-target pair in the dataset
-python RunDELAY.py --do_training False \
+python RunDELAY.py --global_seed 1010 \
+                   --do_training False \
                    --do_predict True \
                    --datasets_dir /full/path/to/dsets/ \
                    --output_dir relative/path/for/logs \
