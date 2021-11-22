@@ -1,5 +1,6 @@
+import glob, pathlib, pickle
+import numpy as np, pandas as pd
 import torch, torch.nn as nn
-import pickle, numpy as np
 import pytorch_lightning as pl
 import torch.nn.functional as F
 
@@ -18,6 +19,9 @@ class Classifier(pl.LightningModule):
 
         # store predictions & targets in pytortch_lightning precision-recall curve
         self.val_prc = nn.ModuleList([PRCurve(pos_label=1) for x in self.val_names])
+
+    def list_dir(self, _dir_, _subdir_):
+        return [str(x) for x in sorted(pathlib.Path(_dir_).glob(_subdir_))]
 
     def configure_optimizers(self):
         return torch.optim.SGD(self.parameters(), lr=self.hparams.lr_init)
@@ -152,3 +156,29 @@ class Classifier(pl.LightningModule):
         self.log(f'_{self.prefix}avg_auc', avg_auc,
                  sync_dist=True,
                  add_dataloader_idx=False)
+
+    def on_predict_epoch_end(self):
+        if self.hparams.data_type=='scrna-seq':
+            sce_fname = self.list_dir(self.hparams.datasets_dir,
+                            f'*/*/*/*/ExpressionData.csv')
+        elif self.hparams.data_type=='scatac-seq':
+            sce_fname = self.list_dir(self.hparams.datasets_dir,
+                            f'*/*/*/*/AccessibilityData.csv')
+        tfs_fname = self.list_dir(self.hparams.datasets_dir,
+                        f'*/*/*/*/TranscriptionFactors.csv')
+        genes = pd.read_csv(sce_fname[0], index_col=0).index.str.lower()
+        tfs = pd.read_csv(tfs_fname[0], index_col=0).index.str.lower()
+        adj_matrix = pd.DataFrame(0., index=tfs, columns=genes)
+        pred_fnames = self.list_dir(self.hparams.datasets_dir,
+            f'*/*/*/*/*/pred_seed={self.hparams.global_seed}*.npy')
+        for idx in range(len(pred_fnames)):
+            path = pred_fnames[idx].split('/')
+            g_fname = '/'.join(path[0:-1]) + '/g_' + '_'.join(path[-1].split('_')[2:])
+            pred = np.load(pred_fnames[idx], allow_pickle=True).reshape(-1)
+            g = np.load(g_fname, allow_pickle=True).reshape(-1)
+            g = np.stack(np.char.split(g, ' '), axis=0)
+            ii = np.where(g[:,0][:,None]==tfs[None,:])[1]
+            jj = np.where(g[:,1][:,None]==genes[None,:])[1]
+            adj_matrix.values[ii, jj] = pred
+        adj_matrix.to_csv(
+            f'{self.hparams.output_dir}/predictions_seed={self.hparams.global_seed}.csv')
