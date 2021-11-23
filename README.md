@@ -87,7 +87,7 @@ python RunDELAY.py --global_seed 1010 \
 
 ## Input Files
 
-The ``datasets_dir`` argument should point to the top-level directory of a tree with the following structure and bottom-level files:
+The ``datasets_dir`` argument should point to the top-level directory of a tree with the following structure:
 
 ```
 data_split (e.g. training)\
@@ -96,6 +96,8 @@ data_split (e.g. training)\
         └── study_name (e.g. velez-et-al-2021)\ 
             └── data_version (e.g. combined-samples)\
 ```
+
+One or more datasets can be specified as bottom-level directories in the tree and should contain these files:
 
 ### ``ExpressionData.csv`` (required for scRNA-seq datasets)
 
