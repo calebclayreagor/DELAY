@@ -20,6 +20,8 @@ The datasets used in this study are available here: https://doi.org/10.5281/zeno
 
 Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo.5711792
 
+Logs generated in this study are available here: https://tensorboard.dev/experiment/RBVBetLMRDiEvO7sBl452A
+
 ## How To Use
 
 ### Finetuning DELAY models on single-cell datasets with partially-known ground truths
