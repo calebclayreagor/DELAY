@@ -99,23 +99,21 @@ data_split (e.g. training)\
 
 One or more datasets can be specified as bottom-level directories containing the following input files:
 
-### 1. ``ExpressionData.csv`` (required for scRNA-seq datasets) OR
+### 1. ``ExpressionData.csv`` or ``AccessibilityData.csv`` (required)
 
-###    ``AccessibilityData.csv`` (required for scATAC-seq datasets)
-
-- A labeled ``genes x cells`` matrix of normalized expression or accessibility values, respectively
+- A ``genes x cells`` matrix of normalized values from scRNA-seq or scATAC-seq datasets, respectively
 
 ### 2. ``PseudoTime.csv`` (required)
 
-- A ``cells x trajectories`` matrix of inferred pseudotime values
+- A ``cells x trajectories`` matrix of inferred pseudotime values for cells in the input dataset
 
-### 3. ``refNetwork.csv`` (optional, required for training or finetuning)
+### 3. ``refNetwork.csv`` (optional, required for training)
 
-- A ground truth network of known tf/target pairs
+- A ground truth network of known tf/target pairs, possibly from cell-type specific ChIP-seq data (recommended)
 
 ### 4. ``TranscriptionFactors.csv`` (optional, required for prediction)
 
-- A list of known transcription factors in the single-cell dataset
+- A list of known transcription factors in the input dataset, used to enumerate all possible tf/target pairs
 
 ## More Examples
 
