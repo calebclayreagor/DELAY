@@ -117,7 +117,7 @@ One or more datasets can be specified as bottom-level directories containing the
 
 ## More Examples
 
-### Training new models from scratch
+### Training models from scratch on single-cell datasets with fully-known ground truths
 
 ```
 python Network.py --global_seed 1010 \
