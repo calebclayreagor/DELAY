@@ -101,7 +101,7 @@ One or more datasets can be specified as bottom-level directories containing the
 
 ### 1. ``ExpressionData.csv`` or ``AccessibilityData.csv`` (required)
 
-- A labeled ``genes x cells`` matrix of normalized expression or accessibility values from the input scRNA-seq or scATAC-seq dataset, respectively
+- A labeled ``genes x cells`` matrix of normalized expression or accessibility values from the input scRNA-seq (expression) or scATAC-seq (accessibility) dataset, respectively
 
 ### 2. ``PseudoTime.csv`` (required)
 
