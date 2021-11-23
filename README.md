@@ -90,11 +90,11 @@ python RunDELAY.py --global_seed 1010 \
 The ``datasets_dir`` argument should point to the top-level directory of a tree with the following structure:
 
 ```
-data_split (e.g. training)\
-└── data_type (e.g. experimental)\
-    └── cell_type (e.g. stem-cell)\
-        └── study_name (e.g. velez-et-al-2021)\ 
-            └── data_version (e.g. combined-samples)\
+data_split (e.g. training)/
+└── data_type (e.g. experimental)/
+    └── cell_type (e.g. stem-cell)/
+        └── study_name (e.g. velez-et-al-2021)/
+            └── data_version (e.g. combined-samples)/
 ```
 
 One or more datasets can be specified as bottom-level directories containing the following input files:
