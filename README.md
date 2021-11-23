@@ -99,11 +99,11 @@ data_split (e.g. training)\
 
 One or more datasets can be specified as bottom-level directories containing the following input files:
 
-### 1. ``ExpressionData.csv`` (required for scRNA-seq datasets) OR
+### 1. ``ExpressionData.csv`` (required for scRNA-seq datasets)
 
 - A ``genes x cells`` matrix of normalized expression values 
 
-### ``AccessibilityData.csv`` (required for scATAC-seq datasets)
+### OR ``AccessibilityData.csv`` (required for scATAC-seq datasets)
 
 - A ``genes x cells`` matrix of normalized accessibility values
 
