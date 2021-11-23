@@ -107,7 +107,7 @@ One or more datasets can be specified as bottom-level directories containing the
 
 - A labeled ``cells x trajectories`` matrix of inferred pseudotime values for one or more trajectories found in the input dataset (each used separately)
 
-### 3. ``refNetwork.csv`` (optional, required for training)
+### 3. ``refNetwork.csv`` (required)
 
 - A two-column table of transcription factors and targets constituting the known ground truth regulatory network, possibly from cell-type specific ChIP-seq data (recommended)
 
