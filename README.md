@@ -101,11 +101,9 @@ One or more datasets can be specified as bottom-level directories containing the
 
 ### 1. ``ExpressionData.csv`` (required for scRNA-seq datasets)
 
-- A ``genes x cells`` matrix of normalized expression values 
-
 ### OR ``AccessibilityData.csv`` (required for scATAC-seq datasets)
 
-- A ``genes x cells`` matrix of normalized accessibility values
+- A labeled ``genes x cells`` matrix of normalized expression or accessibility values, respectively
 
 ### 2. ``PseudoTime.csv`` (required)
 
@@ -113,7 +111,7 @@ One or more datasets can be specified as bottom-level directories containing the
 
 ### 3. ``refNetwork.csv`` (optional, required for training or finetuning)
 
-- A ground truth network of known transcription factor/target pairs
+- A ground truth network of known tf/target pairs
 
 ### 4. ``TranscriptionFactors.csv`` (optional, required for prediction)
 
