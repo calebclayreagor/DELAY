@@ -111,9 +111,9 @@ One or more datasets can be specified as bottom-level directories containing the
 
 - A two-column table of transcription factors and targets constituting the known ground truth regulatory network (e.g. from cell-type specific ChIP-seq data, recommended)
 
-### 4. ``TranscriptionFactors.csv`` (optional, required for prediction)
+### 4. ``TranscriptionFactors.csv`` (optional)
 
-- A one-column table of known transcription factors in the input dataset, used to enumerate all possible transcription factor-target pairs for inference
+- A one-column table of known transcription factors in the input dataset, required for finetuning and prediction with incomplete, partially-known ground truths
 
 ## More Examples
 
