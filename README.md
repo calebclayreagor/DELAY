@@ -133,9 +133,12 @@ python Network.py --global_seed 1010 \
 ### Finetuning with validation
 
 ```
-stuff here     
+python RunDELAY.py -- 
+
 ```
 
-## Read the Preprint
+## Arguments
+
+## Read the Preprint: {link here}
 
 ![haircell-GRN](figures/haircell-GRN.png)
