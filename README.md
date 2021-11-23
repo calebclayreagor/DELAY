@@ -105,15 +105,15 @@ One or more datasets can be specified as bottom-level directories containing the
 
 ### 2. ``PseudoTime.csv`` (required)
 
-- A ``cells x trajectories`` matrix of inferred pseudotime values for cells in the input dataset
+- A labeled ``cells x trajectories`` matrix of inferred pseudotime values for one or more trajectories in the input dataset
 
 ### 3. ``refNetwork.csv`` (optional, required for training)
 
-- A ground truth network of known tf/target pairs, possibly from cell-type specific ChIP-seq data (recommended)
+- A ground truth network of known transcription factor-target interactions, possibly from cell-type specific ChIP-seq data (recommended)
 
 ### 4. ``TranscriptionFactors.csv`` (optional, required for prediction)
 
-- A list of known transcription factors in the input dataset, used to enumerate all possible tf/target pairs
+- A list of known transcription factors in the input dataset, used to enumerate all possible transcription factor-target pairs for inference
 
 ## More Examples
 
