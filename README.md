@@ -83,7 +83,7 @@ python RunDELAY.py --global_seed 1010 \
                    --model_type inverted-vgg
 ```
 
-- DELAY will save the predicted probabilities as a ``tfs x genes`` matrix to a csv file in the ``output_dir``
+- DELAY will save the predicted probabilities as a ``tfs x genes`` matrix csv file in the ``output_dir``
 
 ## Input Files
 
