@@ -113,7 +113,7 @@ One or more datasets can be specified as bottom-level directories containing the
 
 ### 4. ``TranscriptionFactors.csv`` (optional)
 
-- A one-column table of all known transcription factors (``Gene1``) in the input dataset, required for finetuning and prediction with incomplete, partially-known ground truth networks
+- A one-column table of known transcription factors (``Gene1``) in the input dataset, required for finetuning and prediction with incomplete, partially-known ground truth networks
 
 ## More Examples
 
