@@ -105,7 +105,7 @@ One or more datasets can be specified as bottom-level directories containing the
 
 ### 2. ``PseudoTime.csv`` (required)
 
-- A labeled ``cells x trajectories`` matrix of inferred pseudotime values for one or more trajectories found in the input dataset (used separately)
+- A labeled ``cells x trajectories`` matrix of inferred pseudotime values for one or more trajectories found in the input dataset (each used separately)
 
 ### 3. ``refNetwork.csv`` (optional, required for training)
 
