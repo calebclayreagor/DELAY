@@ -117,7 +117,7 @@ One or more datasets can be specified as bottom-level directories containing the
 
 ## More Examples
 
-### Training models from scratch on single-cell datasets with fully-known ground truths
+### Training new models from scratch on single-cell datasets with fully-known ground truths
 
 ```
 # To prepare mini-batches of TF-target pairs from the single-cell dataset
