@@ -109,7 +109,7 @@ One or more datasets can be specified as bottom-level directories containing the
 
 ### 3. ``refNetwork.csv`` (required)
 
-- A two-column table of transcription factors (``Gene1``) and targets (``Gene2``) constituting the fully- or partially-known ground truth regulatory network (e.g. from cell-type specific ChIP-seq data)
+- A two-column table of transcription factors (``Gene1``) and targets (``Gene2``) constituting the fully- or partially-known ground truth regulatory network (e.g. from cell-type specific ChIP-seq data, recommended)
 
 ### 4. ``TranscriptionFactors.csv`` (optional)
 
