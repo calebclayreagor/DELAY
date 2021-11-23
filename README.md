@@ -120,23 +120,23 @@ One or more datasets can be specified as bottom-level directories containing the
 ### Training new models from scratch on single-cell datasets with fully-known ground truths
 
 ```
-# To prepare mini-batches of TF-target pairs from the single-cell dataset
+# To prepare mini-batches of TF-target pairs from the single-cell datasets
 python RunDELAY.py --load_datasets False \
                    --do_training True \
                    --datasets_dir /full/path/to/dsets/ \
-                   --data_type scrna-seq \
+                   --data_type scatac-seq \
                    --batch_size 512 \
                    --neighbors 2 \
                    --max_lag 5 \
                    --nbins_img 32
                    
-# To train a new model (e.g. VGG-6) and validate on a 70/30 split of the data    
+# To train a new model and validate on a 70/30 split of the data (e.g. VGG-6)  
 python RunDELAY.py --global_seed 1010 \
                    --do_training True \
                    --datasets_dir /full/path/to/dsets/ \
                    --output_dir relative/path/for/logs \
                    --model_cfg 32,32,M,64,64,M,128,128,M \
-                   --model_type vgg
+                   --model_type vgg \
                    --train_split .7 \
                    --lr_init .5 \
                    --max_epochs 100
