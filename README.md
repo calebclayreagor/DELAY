@@ -87,24 +87,7 @@ python RunDELAY.py --global_seed 1010 \
 
 ## Input Files
 
-DELAY requires input folders and files for datasets to be structured and named in the following manner:
-
-```
-ExpressionData.csv (required for scRNA-seq datasets)
-``genes x cells`` matrix of normalized expression values 
-
-AccessibilityData.csv (required for scATAC-seq datasets)
-``genes x cells`` matrix of normalized accessibility values
-
-PseudoTime.csv (required)
-``cells x trajectories`` matrix of inferred pseudotime values
-
-refNetwork.csv (optional, required for training or finetuning)
-ground truth network of known transcription factor/target pairs
-
-TranscriptionFactors.csv (optional, required for prediction)
-list of known transcription factors in single cell dataset
-```
+The ``datasets_dir`` argument should point to the top-level directory of a tree with the following structure and bottom-level files:
 
 ```
 data_split (e.g. training)\
@@ -112,7 +95,27 @@ data_split (e.g. training)\
     └── cell_type (e.g. stem-cell)\
         └── study_name (e.g. velez-et-al-2021)\ 
             └── data_version (e.g. combined-samples)\
-```  
+```
+
+### ``ExpressionData.csv`` (required for scRNA-seq datasets)
+
+A ``genes x cells`` matrix of normalized expression values 
+
+### ``AccessibilityData.csv`` (required for scATAC-seq datasets)
+
+A ``genes x cells`` matrix of normalized accessibility values
+
+### ``PseudoTime.csv`` (required)
+
+A ``cells x trajectories`` matrix of inferred pseudotime values
+
+### ``refNetwork.csv`` (optional, required for training or finetuning)
+
+A ground truth network of known transcription factor/target pairs
+
+### ``TranscriptionFactors.csv`` (optional, required for prediction)
+
+A list of known transcription factors in the single-cell dataset
 
 ## More Examples
 
