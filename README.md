@@ -130,7 +130,7 @@ python RunDELAY.py --load_datasets False \
                    --max_lag 5 \
                    --nbins_img 32
                    
-# To train and validate a new model (e.g. VGG-6) on a 70/30 split of the data    
+# To train a new model (e.g. VGG-6) and validate on a 70/30 split of the data    
 python RunDELAY.py --global_seed 1010 \
                    --do_training True \
                    --datasets_dir /full/path/to/dsets/ \
