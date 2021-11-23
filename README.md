@@ -99,7 +99,7 @@ data_split (e.g. training)\
 
 One or more datasets can be specified as bottom-level directories containing the following files:
 
-### ``ExpressionData.csv`` (required for scRNA-seq datasets)
+### 1. ``ExpressionData.csv`` (required for scRNA-seq datasets) OR
 
 A ``genes x cells`` matrix of normalized expression values 
 
@@ -107,15 +107,15 @@ A ``genes x cells`` matrix of normalized expression values
 
 A ``genes x cells`` matrix of normalized accessibility values
 
-### ``PseudoTime.csv`` (required)
+### 2. ``PseudoTime.csv`` (required)
 
 A ``cells x trajectories`` matrix of inferred pseudotime values
 
-### ``refNetwork.csv`` (optional, required for training or finetuning)
+### 3. ``refNetwork.csv`` (optional, required for training or finetuning)
 
 A ground truth network of known transcription factor/target pairs
 
-### ``TranscriptionFactors.csv`` (optional, required for prediction)
+### 4. ``TranscriptionFactors.csv`` (optional, required for prediction)
 
 A list of known transcription factors in the single-cell dataset
 
