@@ -39,7 +39,7 @@ python RunDELAY.py --load_datasets False \
                    --max_lag 5 \
                    --nbins_img 32
                   
-# To finetune on full ground truth (only suitable if finetuning DELAY models on scRNA-seq data)
+# To finetune on full ground truth (only suitable if finetuning DELAY on scRNA-seq data)
 python RunDELAY.py --global_seed 1010 \
                    --do_training False \
                    --do_predict True \
@@ -55,7 +55,8 @@ python RunDELAY.py --global_seed 1010 \
 ```
 
 - DELAY optimizes the class weighted sum-of-losses (BCE Loss) per mini-batch, scaled by ``batch_size``
-- For the best results, use the largest tolerable ``lr_init`` and ``max_epochs>=10^3`` (empirical observation)
+- For the best results, use the largest stable ``lr_init`` and ``max_epochs>=10^3`` (empirical observation)
+- If finetuning DELAY on scATAC-seq data, validate training using ``train_split=.7`` and ``lr_init<=.5``
 - By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
 
 ### Predicting gene regulation across all TF-target pairs using finetuned models
@@ -140,13 +141,6 @@ python RunDELAY.py --global_seed 1010 \
                    --train_split .7 \
                    --lr_init .5 \
                    --max_epochs 100
-```
-
-### Finetuning with validation
-
-```
-python RunDELAY.py -- 
-
 ```
 
 ## Arguments
