@@ -97,7 +97,7 @@ data_split (e.g. training)\
             └── data_version (e.g. combined-samples)\
 ```
 
-One or more datasets can be specified as bottom-level directories containing the following files:
+One or more datasets can be specified as bottom-level directories containing the following input files:
 
 ### 1. ``ExpressionData.csv`` (required for scRNA-seq datasets) OR
 
