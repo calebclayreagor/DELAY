@@ -145,7 +145,7 @@ python RunDELAY.py --global_seed 1010 \
 
 - Use different values for the ``global_seed`` to generate different, random, reproducible training data splits
 
-## Arguments (Other)
+### Arguments
 
 ```
 --nn_dropout (float): p_dropout before linear layers (default 0.)
