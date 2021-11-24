@@ -143,7 +143,7 @@ python RunDELAY.py --global_seed 1010 \
                    --max_epochs 100
 ```
 
-- Use different values for the ``global_seed`` to generate different random, reproducible data splits
+- Use different values for the ``global_seed`` to generate different random, reproducible training data splits
 
 ## More Arguments
 
