@@ -147,8 +147,16 @@ python RunDELAY.py --global_seed 1010 \
 
 ## More Arguments
 
-- 
+```
+--nn_dropout (float): p_dropout before linear layers (default 0.)
 
-## Read the Preprint: {link here}
+--check_val_every_n_epoch (int): validation loop frequency (default 1)
+
+--num_workers (int): number of subprocesses used for data loading (default 36)
+
+--num_gpus (int): number of GPUs used for training (default 2)
+```
+
+## Read the Preprint: {link will go here}
 
 ![haircell-GRN](figures/haircell-GRN.png)
