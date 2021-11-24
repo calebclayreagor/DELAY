@@ -59,7 +59,7 @@ python RunDELAY.py --global_seed 1010 \
 - If finetuning DELAY on scATAC-seq data, validate training using ``train_split=.7`` and set ``lr_init<=.5``
 - By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
 
-### Predicting gene regulation across all TF-target pairs in datasets using finetuned models
+### Predicting gene regulation across all TF-target pairs in dataset using finetuned models
 
 ```
 # To prepare mini-batches of all possible TF-target pairs from the single-cell dataset
