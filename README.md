@@ -163,6 +163,6 @@ python RunDELAY.py --global_seed 1010 \
 --num_gpus (int): number of GPUs used for training (default 2)
 ```
 
-## Read the Preprint: {link will go here}
+## Read the Preprint: {link goes here}
 
 ![haircell-GRN](figures/haircell-GRN.png)
