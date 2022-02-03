@@ -17,7 +17,8 @@ from DELAY.Dataset import Dataset
 from DELAY.Classifier import Classifier
 from Networks.VGG_CNNC import VGG_CNNC
 from Networks.SiameseVGG import SiameseVGG
-from Networks.VGG import VGG
+from Networks.vgg import VGG
+sys.path.append('Networks/')
 
 if __name__ == '__main__':
 
