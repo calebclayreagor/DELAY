@@ -193,7 +193,7 @@ if __name__ == '__main__':
     # pl trainer
     # -----------
     trainer = pl.Trainer(max_epochs=args.max_epochs, deterministic=True,
-                         accelerator='ddp', gpus=args.num_gpus, #[1,],
+                         accelerator='ddp', gpus=args.num_gpus, auto_select_gpus=True,
                          logger=logger, callbacks=callbacks, num_sanity_val_steps=0,
                          plugins=[ DDPPlugin(find_unused_parameters=False) ],
                          check_val_every_n_epoch=args.check_val_every_n_epoch)
