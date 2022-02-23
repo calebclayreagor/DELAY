@@ -165,4 +165,4 @@ python RunDELAY.py --global_seed 1010 \
 
 ## Read the Preprint: {link goes here}
 
-![haircell-GRN](figures/haircell-GRN.png)
+![haircell-GRN](figures/mOHC-GRN.png)
