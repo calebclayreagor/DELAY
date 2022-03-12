@@ -24,7 +24,7 @@ Experiment logs from the study are available here: https://tensorboard.dev/exper
 
 ## How To Use
 
-### Finetuning DELAY models on single-cell datasets with partially-known ground truths
+### Fine-tuning DELAY models on single-cell datasets with partially-known ground truths
 
 ```
 # To prepare mini-batches of known TF-target examples from ground truth data (e.g. ChIP-seq)
@@ -39,7 +39,7 @@ python RunDELAY.py --load_datasets False \
                    --max_lag 5 \
                    --nbins_img 32
                   
-# To finetune on full ground truth (only suitable if finetuning DELAY on scRNA-seq data)
+# To fine-tune on full ground truth (only suitable if fine-tuning DELAY on scRNA-seq data)
 python RunDELAY.py --global_seed 1010 \
                    --do_training False \
                    --do_predict True \
@@ -56,10 +56,10 @@ python RunDELAY.py --global_seed 1010 \
 
 - DELAY optimizes the class weighted sum-of-losses (BCE Loss) per mini-batch, scaled by ``batch_size``
 - For best results, use the largest stable ``lr_init`` and set ``max_epochs>=10^3`` (see experiment logs)
-- If finetuning DELAY on scATAC-seq data, validate training using ``train_split=.7`` and set ``lr_init<=.5``
+- If fine-tuning DELAY on scATAC-seq data, validate training using ``train_split=.7`` and set ``lr_init<=.5``
 - By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
 
-### Predicting gene regulation across all TF-target pairs in dataset using finetuned models
+### Predicting gene regulation across all TF-target pairs in dataset using fine-tuned models
 
 ```
 # To prepare mini-batches of all possible TF-target pairs from the single-cell dataset
