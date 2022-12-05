@@ -26,9 +26,9 @@ if __name__ == '__main__':
     # arguments
     # ----------
     parser = argparse.ArgumentParser(prog = 'DELAY', description = 'Depicting pseudotime-lagged causality for accurate gene-regulatory inference')
-    parser.add_argument('datasets', help = 'Directory containing one or more single-cell datasets')
-    parser.add_argument('output', help = '')
-    parser.add_argument('--compile', action = 'store_true', help = 'Compile mini-batches of input matrices')
+    parser.add_argument('datadir', help = 'Directory containing one or more single-cell datasets')
+    parser.add_argument('outdir', help = '')
+    parser.add_argument('--compile', action = 'store_true', help = 'Compile mini-batches of input matrices') # prepare? 'compile' sounds misleading
     parser.add_argument('--atac', action = 'store_true', help = 'Specify chromatin-accessibility datasets')
     parser.add_argument('--train', action = 'store_true', help = 'Train a new model from scratch')
     parser.add_argument('--test', action = 'store_true', help = 'Test a pre-trained model')
@@ -37,15 +37,15 @@ if __name__ == '__main__':
 
     parser.add_argument('--model_dir', type=str, default='') ##
 
-    parser.add_argument('--split', type = float, nargs = '*', help = '')
-    parser.add_argument('--validate', type = int, help = '')
+    #parser.add_argument('--split', type = float, nargs = '*', help = '') # default is no split (None)
+    #parser.add_argument('--validate', type = int, help = '') # what should the default be?
 
 
     parser.add_argument('--batch_size', type=int, default=512)
     parser.add_argument('--neighbors', type=int, default=2)
     parser.add_argument('--max_lag', type=int, default=5)
 
-    parser.add_argument('--mask_lags', type = int, nargs = '*', help = '') # update code to deal with default (None)
+    parser.add_argument('--mask_lags', type = int, nargs = '*', help = '') # update code to deal with default value (None)
 
     parser.add_argument('--nbins_img', type=int, default=32)
     parser.add_argument('--mask_region', type=str, default='')
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     # ---------------------------
     print('Loading datasets...')
     training, validation, val_names = [], [], []
-    for item in tqdm(sorted(glob.glob(args.datasets))):
+    for item in tqdm(sorted(glob.glob(args.datadir))):
         if os.path.isdir(item):
 
             dset = Dataset(root_dir=item,
@@ -112,18 +112,21 @@ if __name__ == '__main__':
                            batchSize=args.batch_size,
                            load_prev=(not args.compile))
 
-            # ----------------
-            # train/val split
-            # ----------------
-            if args.train_split < 1.0:
-                train_size = int(args.train_split * len(dset))
-                train_dset, val_dset = random_split(dset, [train_size, len(dset)-train_size],
-                                       generator=torch.Generator().manual_seed(args.global_seed))
-                val_names.append(prefix+'_'.join(item.split('/')[-2:]))
-                training.append(train_dset)
-                validation.append(val_dset)
-            else:
-                training.append(dset)
+            # Plan: ?? Call 'Dataset' twice, to create train_dset and val_dset for the current dataset and split
+            # Except: Call it once if doing evaluation ??
+
+            ## ----------------
+            ## train/val split
+            ## ----------------
+            #if args.train_split < 1.0:
+            #    train_size = int(args.train_split * len(dset))
+            #    train_dset, val_dset = random_split(dset, [train_size, len(dset)-train_size],
+            #                           generator=torch.Generator().manual_seed(args.global_seed))
+            #    val_names.append(prefix+'_'.join(item.split('/')[-2:]))
+            #    training.append(train_dset)
+            #    validation.append(val_dset)
+            #else:
+            #    training.append(dset)
 
     training = ConcatDataset(training)
     train_loader = DataLoader(training, batch_size=None, shuffle=True, num_workers=args.num_workers, pin_memory=True)
@@ -164,7 +167,7 @@ if __name__ == '__main__':
     # -------
     # logger
     # -------
-    logger = TensorBoardLogger('lightning_logs', name = args.output)
+    logger = TensorBoardLogger('lightning_logs', name = args.outdir)
 
     # ----------
     # callbacks
@@ -178,7 +181,7 @@ if __name__ == '__main__':
 
         callbacks = [ LearningRateMonitor(logging_interval='epoch'), ModelCheckpoint(
                       monitor=monitor, mode=mode, save_top_k=1,
-                      dirpath=f"lightning_logs/{args.output}/", filename = ckpt_fname) ]
+                      dirpath=f"lightning_logs/{args.outdir}/", filename = ckpt_fname) ]
 
     # -----------
     # pl trainer
