@@ -22,37 +22,38 @@ sys.path.append('Networks/')
 
 if __name__ == '__main__':
 
-    def get_bool(x):
-        if str(x).lower() == 'true':    return True
-        elif str(x).lower() == 'false': return False
-        else: raise Warning('Invalid boolean, using default')
-
     # ----------
     # arguments
     # ----------
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--global_seed', type=int, default=1010)
-    parser.add_argument('--datasets_dir', type=str, default='')
-    parser.add_argument('--output_dir', type=str, default='')
-    parser.add_argument('--load_datasets', type=get_bool, default=True)
-    parser.add_argument('--data_type', type=str, default='rna')
-    parser.add_argument('--do_training', type=get_bool, default=True)
-    parser.add_argument('--do_testing', type=get_bool, default=False)
-    parser.add_argument('--do_predict', type=get_bool, default=False)
-    parser.add_argument('--do_finetune', type=get_bool, default=False)
-    parser.add_argument('--model_dir', type=str, default='')
-    parser.add_argument('--train_split', type=float, default=.7)
+    parser = argparse.ArgumentParser(prog = 'DELAY', description = 'Depicting pseudotime-lagged causality for accurate gene-regulatory inference')
+    parser.add_argument('datasets', help = 'Directory containing one or more single-cell datasets')
+    parser.add_argument('output', help = '')
+    parser.add_argument('--compile', action = 'store_true', help = 'Compile mini-batches of input matrices')
+    parser.add_argument('--atac', action = 'store_true', help = 'Specify chromatin-accessibility datasets')
+    parser.add_argument('--train', action = 'store_true', help = 'Train a new model from scratch')
+    parser.add_argument('--test', action = 'store_true', help = 'Test a pre-trained model')
+    parser.add_argument('-p', '--predict', action = 'store_true', help = 'Use a pre-trained model to predict interactions')
+    parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'Fine-tune a pre-trained model')
+
+    parser.add_argument('--model_dir', type=str, default='') ##
+
+    parser.add_argument('--split', type = float, nargs = '*', help = '')
+    parser.add_argument('--validate', type = int, help = '')
+
+
     parser.add_argument('--batch_size', type=int, default=512)
     parser.add_argument('--neighbors', type=int, default=2)
     parser.add_argument('--max_lag', type=int, default=5)
-    parser.add_argument('--mask_lags', type=str, default='')
+
+    parser.add_argument('--mask_lags', type = int, nargs = '*', help = '') # update code to deal with default (None)
+
     parser.add_argument('--nbins_img', type=int, default=32)
     parser.add_argument('--mask_region', type=str, default='')
     parser.add_argument('--shuffle_traj', type=float, default=0.)
     parser.add_argument('--ncells_traj', type=int, default=0)
     parser.add_argument('--dropout_traj', type=float, default=0.)
     parser.add_argument('--auc_motif', type=str, default='none')
-    parser.add_argument('--ablate_genes', type=get_bool, default=False)
+    parser.add_argument('--ablate_genes', action = 'store_true')
     parser.add_argument('--lr_init', type=float, default=.5)
     parser.add_argument('--nn_dropout', type=float, default=0.)
     parser.add_argument('--model_cfg', type=str, default='')
@@ -65,43 +66,33 @@ if __name__ == '__main__':
 
     prefix, callbacks, cfg = '', None, []
 
-    # ---------
-    # set seed
-    # ---------
-    if args.load_datasets==False:
-        args.global_seed = 1234
-    pl.seed_everything(args.global_seed)
+    pl.seed_everything(1234)
 
-    # -------------------------
-    # train_split (evaluation)
-    # -------------------------
-    if args.do_predict==True and args.do_finetune==False: args.train_split = 1.
+    ## -------------------------
+    ## train_split (evaluation)
+    ## -------------------------
+    #if args.predict == True and args.finetune == False: args.train_split = 1.
 
     # ------------------
     # data type (fname)
     # ------------------
-    if args.data_type=='rna': data_fname = 'ExpressionData.csv'
-    elif args.data_type=='atac': data_fname = 'AccessibilityData.csv'
-
-    # ------------------
-    # data augmentation
-    # ------------------
-    if len(args.mask_lags)>0: args.mask_lags = [int(x) for x in args.mask_lags.split(',')]
-    else: args.mask_lags = []
+    if args.atac == True:
+        data_fname = 'AccessibilityData.csv'
+    else: data_fname = 'ExpressionData.csv'
 
     # -------
     # prefix
     # -------
-    if args.do_training==True: prefix = 'val_'
-    elif args.do_testing==True: prefix = 'test_'
-    elif args.do_predict==True: prefix = 'pred_'
+    if args.train == True: prefix = 'val_'
+    elif args.test == True: prefix = 'test_'
+    elif args.predict == True: prefix = 'pred_'
 
     # ---------------------------
     # datasets (train/val split)
     # ---------------------------
     print('Loading datasets...')
     training, validation, val_names = [], [], []
-    for item in tqdm(sorted(glob.glob(f'{args.datasets_dir}/*/*/*'))):
+    for item in tqdm(sorted(glob.glob(args.datasets))):
         if os.path.isdir(item):
 
             dset = Dataset(root_dir=item,
@@ -116,10 +107,10 @@ if __name__ == '__main__':
                            dropout=args.dropout_traj,
                            motif=args.auc_motif,
                            ablate=args.ablate_genes,
-                           tf_ref=args.do_predict,
-                           use_tf=(not args.do_finetune),
+                           tf_ref=args.predict,
+                           use_tf=(not args.finetune),
                            batchSize=args.batch_size,
-                           load_prev=args.load_datasets)
+                           load_prev=(not args.compile))
 
             # ----------------
             # train/val split
@@ -141,8 +132,8 @@ if __name__ == '__main__':
     for i in range(len(validation)):
         val_loader[i] = DataLoader(validation[i], batch_size=None, num_workers=args.num_workers, pin_memory=True)
 
-    if args.load_datasets==False:
-        sys.exit("Successfuly compiled datasets. To use, run with load_datasets==True.")
+    if args.compile == True: 
+        sys.exit("Successfuly compiled datasets.")
 
     # ---------
     # backbone
@@ -164,7 +155,7 @@ if __name__ == '__main__':
     # ----------------------------
     # model (init or pre-trained)
     # ----------------------------
-    if args.do_training==True:
+    if args.train == True:
         model = Classifier(args, backbone, val_names, prefix)
     else:
         model = Classifier.load_from_checkpoint(args.model_dir, hparams=args,
@@ -173,12 +164,12 @@ if __name__ == '__main__':
     # -------
     # logger
     # -------
-    logger = TensorBoardLogger('lightning_logs', name=args.output_dir)
+    logger = TensorBoardLogger('lightning_logs', name = args.output)
 
     # ----------
     # callbacks
     # ----------
-    if args.do_training==True or args.do_finetune==True:
+    if args.train == True or args.finetune == True:
         if args.train_split < 1.:
             ckpt_fname = '{epoch}-{'+prefix+'avg_auprc:.3f}-{'+prefix+'avg_auroc:.3f}'
             monitor, mode = f'{prefix}avg_auc', 'max'
@@ -187,7 +178,7 @@ if __name__ == '__main__':
 
         callbacks = [ LearningRateMonitor(logging_interval='epoch'), ModelCheckpoint(
                       monitor=monitor, mode=mode, save_top_k=1,
-                      dirpath=f"lightning_logs/{args.output_dir}/", filename=ckpt_fname) ]
+                      dirpath=f"lightning_logs/{args.output}/", filename = ckpt_fname) ]
 
     # -----------
     # pl trainer
@@ -198,38 +189,38 @@ if __name__ == '__main__':
                          plugins=[ DDPPlugin(find_unused_parameters=False) ],
                          check_val_every_n_epoch=args.check_val_every_n_epoch)
 
-    # ------------------------
-    # do_training (from init)
-    # ------------------------
-    if args.do_training==True:
+    # ------------------
+    # train (from init)
+    # ------------------
+    if args.train == True:
         trainer.fit(model, train_loader, val_loader)
 
-    # ------------------------------
-    # do_testing (from pre-trained)
-    # ------------------------------
-    elif args.do_testing==True:
+    # ------------------------
+    # test (from pre-trained)
+    # ------------------------
+    elif args.test == True:
         trainer.test(model, val_loader)
 
-        # ------------------------------
-        # do_finetune (with validation)
-        # ------------------------------
-        if args.do_finetune==True:
+        # ---------------------------
+        # finetune (with validation)
+        # ---------------------------
+        if args.finetune == True:
             trainer.fit(model, train_loader, val_loader)
 
-    # ---------------------------------
-    # do_prediction (from pre-trained)
-    # ---------------------------------
-    elif args.do_predict==True:
+    # ---------------------------
+    # predict (from pre-trained)
+    # ---------------------------
+    elif args.predict == True:
 
-        # -----------------------------
-        # do_finetune (opt validation)
-        # -----------------------------
-        if args.do_finetune==True:
+        # --------------------------
+        # finetune (opt validation)
+        # --------------------------
+        if args.finetune == True:
             if args.train_split==1.: trainer.fit(model, train_loader)
             else: trainer.fit(model, train_loader, val_loader)
 
         # ---------------------------
         # evaluation (no validation)
         # ---------------------------
-        elif args.do_finetune==False:
+        elif args.finetune == False:
             trainer.predict(model, train_loader)
