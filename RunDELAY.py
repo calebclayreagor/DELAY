@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--datasets_dir', type=str, default='')
     parser.add_argument('--output_dir', type=str, default='')
     parser.add_argument('--load_datasets', type=get_bool, default=True)
-    parser.add_argument('--data_type', type=str, default='scrna-seq')
+    parser.add_argument('--data_type', type=str, default='rna')
     parser.add_argument('--do_training', type=get_bool, default=True)
     parser.add_argument('--do_testing', type=get_bool, default=False)
     parser.add_argument('--do_predict', type=get_bool, default=False)
@@ -80,8 +80,8 @@ if __name__ == '__main__':
     # ------------------
     # data type (fname)
     # ------------------
-    if args.data_type=='scrna-seq': data_fname = 'ExpressionData.csv'
-    elif args.data_type=='scatac-seq': data_fname = 'AccessibilityData.csv'
+    if args.data_type=='rna': data_fname = 'ExpressionData.csv'
+    elif args.data_type=='atac': data_fname = 'AccessibilityData.csv'
 
     # ------------------
     # data augmentation
