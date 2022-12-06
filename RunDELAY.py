@@ -1,12 +1,13 @@
 import argparse
-import os, sys
+import os
+import sys
 import glob
 import torch
 import pytorch_lightning as pl
 from tqdm import tqdm
 
 from torch.utils.data                          import DataLoader
-from torch.utils.data                          import random_split
+#from torch.utils.data                          import random_split
 from torch.utils.data                          import ConcatDataset
 from pytorch_lightning.loggers                 import TensorBoardLogger
 from pytorch_lightning.callbacks               import LearningRateMonitor
@@ -26,59 +27,45 @@ if __name__ == '__main__':
     # arguments
     # ----------
     parser = argparse.ArgumentParser(prog = 'DELAY', description = 'Depicting pseudotime-lagged causality for accurate gene-regulatory inference')
-    parser.add_argument('datadir', help = 'Directory containing one or more single-cell datasets')
-    parser.add_argument('outdir', help = '')
-    parser.add_argument('--compile', action = 'store_true', help = 'Compile mini-batches of input matrices') # prepare? 'compile' sounds misleading
-    parser.add_argument('--atac', action = 'store_true', help = 'Specify chromatin-accessibility datasets')
+    parser.add_argument('datadir', help = 'Full path to directory containing one or more single-cell datasets')
+    parser.add_argument('outdir', help = 'Relative directory for the logged results')
     parser.add_argument('--train', action = 'store_true', help = 'Train a new model from scratch')
     parser.add_argument('--test', action = 'store_true', help = 'Test a pre-trained model')
     parser.add_argument('-p', '--predict', action = 'store_true', help = 'Use a pre-trained model to predict interactions')
     parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'Fine-tune a pre-trained model')
+    parser.add_argument('-m', '--model', help = 'Full path to pre-trained model')
+    parser.add_argument('-b', '--batches', action = 'store_true', help = 'Compile mini-batches of input matrices')
 
-    parser.add_argument('--model_dir', type=str, default='') ##
+    parser.add_argument('-k', '--valsplit', type = int, help = '') ##
 
-    #parser.add_argument('--split', type = float, nargs = '*', help = '') # default is no split (None)
-    #parser.add_argument('--validate', type = int, help = '') # what should the default be?
-
-
-    parser.add_argument('--batch_size', type=int, default=512)
-    parser.add_argument('--neighbors', type=int, default=2)
-    parser.add_argument('--max_lag', type=int, default=5)
-
-    parser.add_argument('--mask_lags', type = int, nargs = '*', help = '') # update code to deal with default value (None)
-
-    parser.add_argument('--nbins_img', type=int, default=32)
-    parser.add_argument('--mask_region', type=str, default='')
-    parser.add_argument('--shuffle_traj', type=float, default=0.)
-    parser.add_argument('--ncells_traj', type=int, default=0)
-    parser.add_argument('--dropout_traj', type=float, default=0.)
-    parser.add_argument('--auc_motif', type=str, default='none')
-    parser.add_argument('--ablate_genes', action = 'store_true')
-    parser.add_argument('--lr_init', type=float, default=.5)
-    parser.add_argument('--nn_dropout', type=float, default=0.)
-    parser.add_argument('--model_cfg', type=str, default='')
-    parser.add_argument('--model_type', type=str, default='inverted-vgg')
-    parser.add_argument('--max_epochs', type=int, default=100)
-    parser.add_argument('--check_val_every_n_epoch', type=int, default=1)
-    parser.add_argument('--num_workers', type=int, default=36)
-    parser.add_argument('--num_gpus', type=int, default=2)
+    parser.add_argument('-bs', '--batch_size', type = int, default = 512, help = '')
+    parser.add_argument('-nbr', '--neighbors', type = int, default = 2, help = '')
+    parser.add_argument('-l', '--maxlag', type = int, default = 1, help = '') ##
+    parser.add_argument('--mask_lags', type = int, nargs = '*', help = '') ##
+    parser.add_argument('--dimensions', type = int, default = 32, help = '')
+    parser.add_argument('--mask_region', choices = ['off-off', 'on-off', 'off-on', 'on-on', 'on', 'edges'], help = '') ##
+    parser.add_argument('--shuffle_traj', type = float, help = '') ##
+    parser.add_argument('--ncells_traj', type = int, help = '') ##
+    parser.add_argument('--dropout_traj', type = float, help = '') ##
+    parser.add_argument('--auc_motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'], help = '') ##
+    parser.add_argument('--ablate_genes', action = 'store_true', help = '')
+    parser.add_argument('-lr', '--learning_rate', type = float, default = .5, help = '')
+    parser.add_argument('-cfg', '--model_cfg', nargs = '*', help = '') ##
+    parser.add_argument('--model_type', choices = ['inverted-vgg', 'vgg-cnnc', 'siamese-vgg', 'vgg'], default = 'inverted-vgg', help = '')
+    parser.add_argument('--max_epochs', type = int, default = 100, help = '')
+    parser.add_argument('--check_val_every_n_epoch', type = int, default = 1, help = '')
+    parser.add_argument('--workers', type = int, default = 36, help = '')
+    parser.add_argument('--gpus', type = int, default = 2, help = '')
     args = parser.parse_args()
 
-    prefix, callbacks, cfg = '', None, []
-
+    prefix, callbacks = '', None
     pl.seed_everything(1234)
 
     ## -------------------------
     ## train_split (evaluation)
     ## -------------------------
     #if args.predict == True and args.finetune == False: args.train_split = 1.
-
-    # ------------------
-    # data type (fname)
-    # ------------------
-    if args.atac == True:
-        data_fname = 'AccessibilityData.csv'
-    else: data_fname = 'ExpressionData.csv'
+    evaluate = (args.predict == True) and (args.finetune == False)
 
     # -------
     # prefix
@@ -96,11 +83,11 @@ if __name__ == '__main__':
         if os.path.isdir(item):
 
             dset = Dataset(root_dir=item,
-                           rel_path=f'*/{data_fname}',
+                           rel_path=f'*/NormalizedData.csv',
                            neighbors=args.neighbors,
-                           max_lag=args.max_lag,
+                           max_lag=args.maxlag,
                            mask_lags=args.mask_lags,
-                           nbins=args.nbins_img,
+                           nbins=args.dimensions,
                            mask_img=args.mask_region,
                            shuffle=args.shuffle_traj,
                            ncells=args.ncells_traj,
@@ -110,7 +97,7 @@ if __name__ == '__main__':
                            tf_ref=args.predict,
                            use_tf=(not args.finetune),
                            batchSize=args.batch_size,
-                           load_prev=(not args.compile))
+                           load_prev=(not args.batches))
 
             # Plan: ?? Call 'Dataset' twice, to create train_dset and val_dset for the current dataset and split
             # Except: Call it once if doing evaluation ??
@@ -129,23 +116,21 @@ if __name__ == '__main__':
             #    training.append(dset)
 
     training = ConcatDataset(training)
-    train_loader = DataLoader(training, batch_size=None, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+    train_loader = DataLoader(training, batch_size=None, shuffle=True, num_workers=args.workers, pin_memory=True)
 
     val_loader = [None] * len(validation)
     for i in range(len(validation)):
-        val_loader[i] = DataLoader(validation[i], batch_size=None, num_workers=args.num_workers, pin_memory=True)
+        val_loader[i] = DataLoader(validation[i], batch_size=None, num_workers=args.workers, pin_memory=True)
 
-    if args.compile == True: 
+    if args.batches == True: 
         sys.exit("Successfuly compiled datasets.")
 
     # ---------
     # backbone
     # ---------
-    for item in args.model_cfg.split(','):
-        if item=='M': cfg.append('M')
-        elif item=='D': cfg.append('D')
-        else: cfg.append(int(item))
-    args.model_cfg, nchans = cfg, (3+2*args.neighbors)*(1+args.max_lag)
+
+    args.model_cfg = [int(x) for x in args.model_cfg if x != 'M']
+    nchans = (3+2*args.neighbors)*(1+args.maxlag)
     if args.model_type=='inverted-vgg':
         backbone = VGG(cfg=args.model_cfg, in_channels=nchans, dropout=args.nn_dropout)
     elif args.model_type=='vgg-cnnc':
@@ -161,7 +146,7 @@ if __name__ == '__main__':
     if args.train == True:
         model = Classifier(args, backbone, val_names, prefix)
     else:
-        model = Classifier.load_from_checkpoint(args.model_dir, hparams=args,
+        model = Classifier.load_from_checkpoint(args.model, hparams=args,
                 backbone=backbone, val_names=val_names, prefix=prefix)
 
     # -------
@@ -187,7 +172,7 @@ if __name__ == '__main__':
     # pl trainer
     # -----------
     trainer = pl.Trainer(max_epochs=args.max_epochs, deterministic=True,
-                         accelerator='ddp', gpus=args.num_gpus, auto_select_gpus=True,
+                         accelerator='ddp', gpus=args.gpus, auto_select_gpus=True,
                          logger=logger, callbacks=callbacks, num_sanity_val_steps=0,
                          plugins=[ DDPPlugin(find_unused_parameters=False) ],
                          check_val_every_n_epoch=args.check_val_every_n_epoch)
