@@ -13,52 +13,28 @@ import itertools
 import pickle
 
 class Dataset(torch.utils.data.Dataset):
-    """Generate/load batches of images"""
-    def __init__(self,
-                 root_dir,
-                 rel_path,
-                 neighbors,
-                 max_lag,
-                 mask_lags,
-                 nbins,
-                 mask_img='',
-                 batchSize=None,
-                 shuffle=0.,
-                 ncells=0,
-                 dropout=0.,
-                 motif='none',
-                 ablate=False,
-                 tf_ref=False,
-                 use_tf=False,
-                 load_prev=True,
-                 verbose=False):
+    """Generate/load batches of matrices"""
 
+    def __init__(self, args,
+                 root_dir,
+                 verbose = False):
+
+        self.args = args
         self.root_dir = root_dir
-        self.rel_path = rel_path
-        self.load_prev = load_prev
-        self.batch_size = batchSize
-        self.neighbors = neighbors
-        self.max_lag = max_lag
-        self.mask_lags = mask_lags
-        self.nbins = nbins
-        self.mask_img = mask_img
-        self.shuffle = shuffle
-        self.ncells = ncells
-        self.dropout = dropout
-        self.motif = motif
-        self.ablate = ablate
-        self.tf_ref = tf_ref
-        self.use_tf = use_tf
+        self.load_prev = (not args.batches)
+        self.tf_ref = (args.predict)
+        self.use_tf = (not args.finetune)
 
         # get batch pathnames
         if self.load_prev==True:
-            prev_path = '/'.join(self.rel_path.split('/')[:-1])+'*/'
+            prev_path = '/'.join('*/NormalizedData.csv'.split('/')[:-1]) + '*/'
             self.X_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'X_*.npy'))]
             self.y_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'y_*.npy'))]
             self.msk_fnames = [str(x) for x in sorted(pathlib.Path(self.root_dir).glob(prev_path+'msk_*.npy'))]
+        
         else:
             # generate batches for each cell-type lineage (trajectory): X, y, mask
-            self.sce_fnames = sorted(pathlib.Path(self.root_dir).glob(self.rel_path))
+            self.sce_fnames = sorted(pathlib.Path(self.root_dir).glob('*/NormalizedData.csv'))
             self.X_fnames = [ None ] * len(self.sce_fnames)
             self.y_fnames = [ None ] * len(self.sce_fnames)
             self.msk_fnames = [ None ] * len(self.sce_fnames)
@@ -89,14 +65,14 @@ class Dataset(torch.utils.data.Dataset):
         if seed is not None: np.random.seed(seed)
         if df==True: pt = pt.copy().values
         for i in np.arange(pt.size):
-            j = np.random.normal(loc=0, scale=self.shuffle*pt.size)
+            j = np.random.normal(loc=0, scale=self.args.shuffle*pt.size)
             i_ = int(round(np.clip(i+j, 0, pt.size-1)))
             pt[[i,i_]] = pt[[i_,i]]
         return pt
 
     def max_cross_correlation(self, a, v):
         corr = abs(np.correlate(a, v, "same"))
-        return corr[ corr.size//2 - self.max_lag : corr.size//2 ].max()
+        return corr[ corr.size//2 - self.args.max_lag : corr.size//2 ].max()
 
     def generate_batches(self, sce_fname):
         """Generate batches as .npy files from sce file"""
@@ -127,17 +103,17 @@ class Dataset(torch.utils.data.Dataset):
             traj_idx = pt.iloc[np.where(~pt.iloc[:,k].isnull())[0], k].sort_values().index
 
             # shuffle pseudotime
-            if self.shuffle > 0.:
+            if self.args.shuffle > 0.:
                 traj_idx = self.shuffle_pt(traj_idx, seed=None, df=True)
 
             # sample ncells (optional, only if traj > ncells)
-            if self.ncells > 0 and self.ncells < traj_idx.size:
-                traj_idx = traj_idx[np.sort(np.random.choice(np.arange(traj_idx.size), self.ncells, False))].copy()
+            if self.args.ncells > 0 and self.args.ncells < traj_idx.size:
+                traj_idx = traj_idx[np.sort(np.random.choice(np.arange(traj_idx.size), self.args.ncells, False))].copy()
 
             # additional dropouts
-            if self.dropout > 0.:
-                below_cutoff = (sce.loc[traj_idx,:].values < sce.loc[traj_idx,:].quantile(self.dropout, axis=1).values[:,None])
-                drop = np.random.choice([0.,1.], p=[self.dropout,1-self.dropout], size=below_cutoff.shape)
+            if self.args.dropout > 0.:
+                below_cutoff = (sce.loc[traj_idx,:].values < sce.loc[traj_idx,:].quantile(self.args.dropout, axis=1).values[:,None])
+                drop = np.random.choice([0.,1.], p=[self.args.dropout,1-self.args.dropout], size=below_cutoff.shape)
                 sce.loc[traj_idx,:] *= (below_cutoff.astype(int) * drop + (~below_cutoff).astype(int))
 
             # load gene regulation labels from reference file
@@ -158,40 +134,40 @@ class Dataset(torch.utils.data.Dataset):
                 tf = g1.copy()
 
             # trajectory pairwise gene correlations (max absolute cross corr or max pearson corr)
-            if self.max_lag > 0: traj_pcorr = sce.loc[traj_idx,:].corr(self.max_cross_correlation)
-            elif self.max_lag==0: traj_pcorr = sce.loc[traj_idx,:].corr(method='pearson')
+            if self.args.max_lag > 0: traj_pcorr = sce.loc[traj_idx,:].corr(self.max_cross_correlation)
+            elif self.args.max_lag==0: traj_pcorr = sce.loc[traj_idx,:].corr(method='pearson')
 
             # select gpairs in motif, optionally ablate (i.e. mask) genes
             gmasks, gpair_select = dict(), np.array([''])
             for g in itertools.product(sorted(set(g1)), sce.columns):
-                if self.motif=='none':
+                if self.args.motif=='none':
                     gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
                     gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                elif self.motif=='ffl-reg':
+                elif self.args.motif=='ffl-reg':
                     pair_reg = ref.loc[ref['Gene2'].str.lower().isin(g), 'Gene1']
                     pair_reg = pair_reg[ pair_reg.duplicated() ].str.lower().values
                     if pair_reg.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
-                    if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_reg)
-                    elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                elif self.motif=='ffl-tgt':
+                    if self.args.ablate==True: gmasks[g] = ~sce.columns.isin(pair_reg)
+                    elif self.args.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                elif self.args.motif=='ffl-tgt':
                     pair_tgt = ref.loc[ref['Gene1'].str.lower().isin(g), 'Gene2']
                     pair_tgt = pair_tgt[ pair_tgt.duplicated() ].str.lower().values
                     if pair_tgt.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
-                    if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_tgt)
-                    elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                elif self.motif=='ffl-trans':
+                    if self.args.ablate==True: gmasks[g] = ~sce.columns.isin(pair_tgt)
+                    elif self.args.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                elif self.args.motif=='ffl-trans':
                     pair_trans = np.intersect1d(ref.loc[ref['Gene1'].str.lower()==g[0], 'Gene2'].str.lower().values,
                                                 ref.loc[ref['Gene2'].str.lower()==g[1], 'Gene1'].str.lower().values)
                     if pair_trans.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
-                    if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
-                    elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                elif self.motif=='fbl-trans':
+                    if self.args.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
+                    elif self.args.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                elif self.args.motif=='fbl-trans':
                     pair_trans = np.intersect1d(ref.loc[ref['Gene1'].str.lower()==g[1], 'Gene2'].str.lower().values,
                                                     ref.loc[ref['Gene2'].str.lower()==g[0], 'Gene1'].str.lower().values)
                     if pair_trans.size>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
-                    if self.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
-                    elif self.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
-                elif self.motif=='mi-simple':
+                    if self.args.ablate==True: gmasks[g] = ~sce.columns.isin(pair_trans)
+                    elif self.args.ablate==False: gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
+                elif self.args.motif=='mi-simple':
                     pair_si = ref.loc[(ref['Gene1'].str.lower()==g[1])&(ref['Gene2'].str.lower()==g[0]),:]
                     if pair_si.shape[0]>0: gpair_select = np.append(gpair_select, f'{g[0]} {g[1]}')
                     gmasks[g] = np.ones((sce.shape[1],)).astype(bool)
@@ -200,11 +176,11 @@ class Dataset(torch.utils.data.Dataset):
             gpairs = [tuple( list(g) + list(traj_pcorr.loc[g[0],(traj_pcorr.index.isin(tf)) &
                                                                 (~traj_pcorr.index.isin(g)) &
                                                                 (gmasks[g])
-                                                            ].nlargest(self.neighbors).index)
+                                                            ].nlargest(self.args.neighbors).index)
                                      + list(traj_pcorr.loc[g[1],(traj_pcorr.index.isin(tf)) &
                                                                 (~traj_pcorr.index.isin(g)) &
                                                                 (gmasks[g])
-                                                            ].nlargest(self.neighbors).index) )
+                                                            ].nlargest(self.args.neighbors).index) )
                       for g in itertools.product(sorted(set(g1)), sce.columns)]
 
             # shuffle order of TF/target gpairs
@@ -213,16 +189,16 @@ class Dataset(torch.utils.data.Dataset):
 
             # indices for pairwise comparisons
             gene_traj_pairs = [[0,1],[0,0],[1,1]]
-            for i in range(self.neighbors):
+            for i in range(self.args.neighbors):
                 gene_traj_pairs.append([0,2+i])
-                gene_traj_pairs.append([1,2+self.neighbors+i])
+                gene_traj_pairs.append([1,2+self.args.neighbors+i])
 
             # number of TF/target gpairs, no. cells
             n, n_cells = len(gpairs), traj_idx.size
 
             # generate TF/target gpair batches
-            if self.batch_size is not None:
-                gpairs_batched = [list(x) for x in self.grouper(gpairs, self.batch_size)]
+            if self.args.batch_size is not None:
+                gpairs_batched = [list(x) for x in self.grouper(gpairs, self.args.batch_size)]
                 gpairs_batched = [list(filter(None, x)) for x in gpairs_batched]
             else: gpairs_batched = [gpairs]
 
@@ -237,13 +213,13 @@ class Dataset(torch.utils.data.Dataset):
                 gpairs_list = list(itertools.chain(*gpairs_batched[j]))
 
                 # split batch into single gpair examples (w/ neighbors)
-                if self.batch_size is None or j==len(gpairs_batched)-1:
+                if self.args.batch_size is None or j==len(gpairs_batched)-1:
                     sce_list = np.array_split(sce.loc[traj_idx, gpairs_list].values, len(gpairs_batched[j]), axis=1)
                 else:
-                    sce_list = np.array_split(sce.loc[traj_idx, gpairs_list].values, self.batch_size, axis=1)
+                    sce_list = np.array_split(sce.loc[traj_idx, gpairs_list].values, self.args.batch_size, axis=1)
 
                 # recombine re-shaped examples into full mini-batch
-                sce_list = [g_sce.reshape(1,2+2*self.neighbors,1,n_cells) for g_sce in sce_list]
+                sce_list = [g_sce.reshape(1,2+2*self.args.neighbors,1,n_cells) for g_sce in sce_list]
                 X_batch = np.concatenate(sce_list, axis=0).astype(np.float32)
 
                 # generate for batch: gene names, regulation labels, motif mask
@@ -252,8 +228,8 @@ class Dataset(torch.utils.data.Dataset):
                 msk_batch = np.in1d(gpairs_batched_1d, gpair_select).reshape(X_batch.shape[0],1)
 
                 # generate 2D gene-gene co-expression images
-                nchannels = len(gene_traj_pairs) * (1+self.max_lag)
-                X_imgs = np.zeros((X_batch.shape[0], nchannels, self.nbins, self.nbins))
+                nchannels = len(gene_traj_pairs) * (1+self.args.max_lag)
+                X_imgs = np.zeros((X_batch.shape[0], nchannels, self.args.nbins, self.args.nbins))
 
                 # loop over examples in batch
                 for i in range(X_imgs.shape[0]):
@@ -264,32 +240,32 @@ class Dataset(torch.utils.data.Dataset):
                         # aligned gene-gene co-expression image
                         pair = gene_traj_pairs[pair_idx]
                         data = np.squeeze(X_batch[i,pair,:,:]).T
-                        if 0 in self.mask_lags: pass
+                        if 0 in self.args.mask_lags: pass
                         else:
-                            H, _ = np.histogramdd(data, bins=(self.nbins,self.nbins))
+                            H, _ = np.histogramdd(data, bins=(self.args.nbins, self.args.nbins))
                             H /= np.sqrt((H.flatten()**2).sum())
-                            X_imgs[i,pair_idx*(1+self.max_lag),:,:] = H
+                            X_imgs[i,pair_idx*(1+self.args.max_lag),:,:] = H
 
                         # lagged gene-gene co-expression images
-                        for lag in range(1,self.max_lag+1):
-                            if lag in self.mask_lags: pass
+                        for lag in range(1,self.args.max_lag+1):
+                            if lag in self.arg.mask_lags: pass
                             else:
                                 data_lagged = np.concatenate((data[:-lag,0].reshape(-1,1),
                                                               data[lag:,1].reshape(-1,1)), axis=1)
-                                H, _ = np.histogramdd(data_lagged, bins=(self.nbins,self.nbins))
+                                H, _ = np.histogramdd(data_lagged, bins=(self.args.nbins, self.args.nbins))
                                 H /= np.sqrt((H.flatten()**2).sum())
-                                X_imgs[i,pair_idx*(1+self.max_lag)+lag,:,:] = H
+                                X_imgs[i,pair_idx*(1+self.args.max_lag)+lag,:,:] = H
 
                 # optionally, mask region(s)
-                if self.mask_img=='off-off':
-                    X_imgs[:,:,:(self.nbins//2),:(self.nbins//2)] = 0.
-                if self.mask_img in ['on-off', 'on']:
-                    X_imgs[:,:,(self.nbins//2):,:(self.nbins//2)] = 0.
-                if self.mask_img in ['off-on', 'on']:
-                    X_imgs[:,:,:(self.nbins//2),(self.nbins//2):] = 0.
-                if self.mask_img in ['on-on', 'on']:
-                    X_imgs[:,:,(self.nbins//2):,(self.nbins//2):] = 0.
-                if self.mask_img=='edges':
+                if self.args.mask_region=='off-off':
+                    X_imgs[:,:,:(self.args.nbins//2),:(self.args.nbins//2)] = 0.
+                if self.args.mask_region in ['on-off', 'on']:
+                    X_imgs[:,:,(self.args.nbins//2):,:(self.args.nbins//2)] = 0.
+                if self.args.mask_region in ['off-on', 'on']:
+                    X_imgs[:,:,:(self.args.nbins//2),(self.args.nbins//2):] = 0.
+                if self.args.mask_region in ['on-on', 'on']:
+                    X_imgs[:,:,(self.args.nbins//2):,(self.args.nbins//2):] = 0.
+                if self.args.mask_region == 'edges':
                     X_imgs[:,:,0,:] = 0.; X_imgs[:,:,:,0] = 0.
 
                 # save X, y, msk, g to pickled numpy files

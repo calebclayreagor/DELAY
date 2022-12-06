@@ -1,13 +1,13 @@
-import torch, torch.nn as nn
+import torch
+import torch.nn as nn
 
 class VGG(nn.Module):
-    def __init__(self, cfg, in_channels, dropout):
+    def __init__(self, cfg, in_channels):
         super(VGG, self).__init__()
         self.cfg, self.in_channels = cfg, in_channels
         self.features = self.make_layers()
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Sequential(
-                nn.Dropout(p=dropout),
                 nn.Linear(cfg[-1], 1))
         self._initialize_weights()
 

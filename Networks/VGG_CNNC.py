@@ -1,14 +1,14 @@
-import torch, torch.nn as nn
+import torch
+import torch.nn as nn
 
 class VGG_CNNC(nn.Module):
-    def __init__(self, cfg, dropout, in_channels=1):
+    def __init__(self, cfg, in_channels=1):
         super(VGG_CNNC, self).__init__()
         self.cfg = cfg
         self.features = self.make_layers(in_channels)
         self.classifier = nn.Sequential(
                 nn.Linear(128*4*4, 512),
                 nn.ReLU(),
-                nn.Dropout(p=dropout),
                 nn.Linear(512, 1))
         self._initialize_weights()
 

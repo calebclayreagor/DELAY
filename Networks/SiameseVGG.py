@@ -1,7 +1,8 @@
-import torch, torch.nn as nn
+import torch
+import torch.nn as nn
 
 class SiameseVGG(nn.Module):
-    def __init__(self, cfg, neighbors, dropout):
+    def __init__(self, cfg, neighbors):
         super(SiameseVGG, self).__init__()
         self.primary_features = self.make_layers(cfg)
         self.neighbor_features = self.make_layers(cfg)
@@ -12,13 +13,10 @@ class SiameseVGG(nn.Module):
             nn.Linear(4*4*128, 512),
             nn.ReLU())
         self.classifier = nn.Sequential(
-            nn.Dropout(p=dropout),
             nn.Linear(512*(3+2*neighbors), 512),
             nn.ReLU(),
-            nn.Dropout(p=dropout),
             nn.Linear(512, 128),
             nn.ReLU(),
-            nn.Dropout(p=dropout),
             nn.Linear(128, 1))
         self._initialize_weights()
 
