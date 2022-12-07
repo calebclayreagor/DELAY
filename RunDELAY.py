@@ -2,7 +2,6 @@ import argparse
 import os
 import sys
 import glob
-import torch
 import pytorch_lightning as pl
 from tqdm import tqdm
 
@@ -30,8 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--predict', action = 'store_true', help = 'Use a pre-trained model to predict interactions')
     parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'Fine-tune a pre-trained model')
     parser.add_argument('-m', '--model', help = 'Full path to pre-trained model')
-    parser.add_argument('-b', '--batches', action = 'store_true', help = 'Compile mini-batches of input matrices')
-    parser.add_argument('-k', '--valsplit', type = int, help = '') # what should the default value be?
+    parser.add_argument('-k', '--valsplit', type = int, help = '')
     parser.add_argument('-bs', '--batch_size', type = int, default = 512, help = '')
     parser.add_argument('-d', '--dimensions', type = int, dest = 'nbins', default = 32, help = '')
     parser.add_argument('-nb', '--neighbors', type = int, default = 2, help = '')
@@ -40,6 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--max_epochs', type = int, default = 100, help = '')
     parser.add_argument('--train', action = 'store_true', help = 'Train a new model from scratch')
     parser.add_argument('--test', action = 'store_true', help = 'Test a pre-trained model')
+    parser.add_argument('--load_batches', action = 'store_true', help = 'Load previously-constructed mini-batches of input matrices')
     parser.add_argument('-cfg', '--model_cfg', nargs = '*', default = ['1024', 'M', '512', 'M', '256', 'M', '128', 'M', '64'], help = '')
     parser.add_argument('--model_type', choices = ['inverted-vgg', 'vgg-cnnc', 'siamese-vgg', 'vgg'], default = 'inverted-vgg', help = '')
     parser.add_argument('--mask_lags', type = int, nargs = '*', help = '')
@@ -54,60 +53,80 @@ if __name__ == '__main__':
     parser.add_argument('--gpus', type = int, default = 2, help = '')
     args = parser.parse_args()
 
-    pl.seed_everything(1234)
-
-    prefix, callbacks = '', None
-    if args.train == True: 
-        prefix = 'val_'
-    elif args.test == True: 
-        prefix = 'test_'
-    elif args.predict == True: 
-        prefix = 'pred_'
-
-    ## -------------------------
-    ## train_split (evaluation)
-    ## -------------------------
-    #if args.predict == True and args.finetune == False: args.train_split = 1.
-    evaluate = (args.predict == True) and (args.finetune == False)
+    # ------
+    # setup
+    # ------
+    pl.seed_everything(1234); callbacks = None
+    if args.train == True: prefix = 'val_'
+    elif args.test == True: prefix = 'test_'
+    elif args.predict == True: prefix = 'pred_'
 
     # ---------------------------
-    # datasets (train/val split)
+    # load or construct datasets
     # ---------------------------
     print('Loading datasets...')
     training, validation, val_names = [], [], []
-    for item in tqdm(sorted(glob.glob(args.datadir))):
-        if os.path.isdir(item):
+    for fn in tqdm(sorted(glob.glob(f'{args.datadir}*/'))):
+        if os.path.isdir(fn):
 
-            dset = Dataset(args, root_dir = item)
+            # -----------------------------------------------
+            # construct datasets for training or fine-tuning
+            # -----------------------------------------------
+            train_dset, val_dset = None, None
+            if args.train == True or args.finetune == True:
+                train_dset = Dataset(args, fn, 'training')
+                if args.valsplit is not None:
+                    val_dset = Dataset(args, fn, 'validation')
 
-            # Plan: ?? Call 'Dataset' twice, to create train_dset and val_dset for the current dataset and split
-            # Except: Call it once if doing evaluation ??
+            # ------------------------------------------------
+            # construct testing dataset ONLY (no fine-tuning)
+            # ------------------------------------------------
+            elif args.test == True:
+                val_dset = Dataset(args, fn, 'validation')
 
-            ## ----------------
-            ## train/val split
-            ## ----------------
-            #if args.train_split < 1.0:
-            #    train_size = int(args.train_split * len(dset))
-            #    train_dset, val_dset = random_split(dset, [train_size, len(dset)-train_size],
-            #                           generator=torch.Generator().manual_seed(args.global_seed))
-            #    val_names.append(prefix+'_'.join(item.split('/')[-2:]))
-            #    training.append(train_dset)
-            #    validation.append(val_dset)
-            #else:
-            #    training.append(dset)
+            # ---------------------------------------------------
+            # construct prediction dataset ONLY (no fine-tuning)
+            # ---------------------------------------------------
+            elif args.predict == True:
+                train_dset = Dataset(args, fn, 'prediction')                
+            
+            # ------------------------
+            # append training dataset
+            # ------------------------
+            if train_dset is not None: 
+                training.append(train_dset)
 
-    training = ConcatDataset(training)
-    train_loader = DataLoader(training, batch_size = None, shuffle = True, num_workers = args.workers, pin_memory = True)
+            # -----------------
+            # validation split
+            # -----------------
+            if val_dset is not None: 
+                validation.append(val_dset)
+                val_names.append(prefix + '_'.join(fn.split('/')[-2:]))
 
-    val_loader = [None] * len(validation)
-    for i in range(len(validation)):
-        val_loader[i] = DataLoader(validation[i], batch_size = None, num_workers = args.workers, pin_memory = True)
+    # --------------------
+    # training dataloader
+    # --------------------
+    if len(training) > 0:
+        training = ConcatDataset(training)
+        train_loader = DataLoader(training, 
+                                  batch_size = None, 
+                                  shuffle = True, 
+                                  num_workers = args.workers, 
+                                  pin_memory = True)
 
-    if args.batches == True: 
-        sys.exit("Successfuly compiled datasets.") # extend this message
+    # ----------------------
+    # validation dataloader
+    # ----------------------
+    if len(validation) > 0:
+        val_loader = [None] * len(validation)
+        for i in range(len(validation)):
+            val_loader[i] = DataLoader(validation[i], 
+                                       batch_size = None, 
+                                       num_workers = args.workers, 
+                                       pin_memory = True)
 
     # ---------
-    # backbone
+    # backbone    ## start here
     # ---------
     args.model_cfg = [int(x) for x in args.model_cfg if x not in ['M','D']]
     nchans = (3 + 2 * args.neighbors) * (1 + args.max_lag)
@@ -185,5 +204,4 @@ if __name__ == '__main__':
         # ---------------------------
         # evaluation (no validation)
         # ---------------------------
-        elif args.finetune == False:
-            trainer.predict(model, train_loader)
+        else: trainer.predict(model, train_loader)
