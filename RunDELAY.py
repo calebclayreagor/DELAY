@@ -41,8 +41,8 @@ if __name__ == '__main__':
     parser.add_argument('--load_batches', action = 'store_true', help = 'Load previously-constructed mini-batches of input matrices')
     parser.add_argument('-cfg', '--model_cfg', nargs = '*', default = ['1024', 'M', '512', 'M', '256', 'M', '128', 'M', '64'], help = '')
     parser.add_argument('--model_type', choices = ['inverted-vgg', 'vgg-cnnc', 'siamese-vgg', 'vgg'], default = 'inverted-vgg', help = '')
-    parser.add_argument('--mask_lags', type = int, nargs = '*', help = '')
-    parser.add_argument('--mask_region', choices = ['off-off', 'on-off', 'off-on', 'on-on', 'on', 'edges'], help = '')
+    parser.add_argument('--mask_lags', type = int, nargs = '*',  default = [], help = '')
+    parser.add_argument('--mask_region', choices = ['off-off', 'on-off', 'off-on', 'on-on', 'on'], help = '')
     parser.add_argument('--shuffle_traj', type = float, dest = 'shuffle', help = '')
     parser.add_argument('--ncells_traj', type = int, dest = 'ncells', help = '')
     parser.add_argument('--dropout_traj', type = float, dest = 'dropout', help = '')
@@ -125,8 +125,12 @@ if __name__ == '__main__':
                                        num_workers = args.workers, 
                                        pin_memory = True)
 
+
+
+    ## start here
+
     # ---------
-    # backbone    ## start here
+    # backbone
     # ---------
     args.model_cfg = [int(x) for x in args.model_cfg if x not in ['M','D']]
     nchans = (3 + 2 * args.neighbors) * (1 + args.max_lag)
