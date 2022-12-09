@@ -90,6 +90,8 @@ if __name__ == '__main__':
             elif args.predict == True:
                 train_dset = Dataset(args, fn, 'prediction')                
             
+            input('STOPPED')
+
             # ------------------------
             # append training dataset
             # ------------------------

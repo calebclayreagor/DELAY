@@ -9,6 +9,7 @@ import random
 import itertools
 import pickle
 
+from typing import Tuple
 from pathlib import Path
 from tqdm import tqdm
 
@@ -24,8 +25,8 @@ class Dataset(torch.utils.data.Dataset):
         self.path = Path(root_dir)
         self.split = split
 
-        # get mini-batch filenames (NEED TO TEST)
-        if self.args.load_batches == True: ## need OR statement for second GPU to load batches
+        # get mini-batch filenames (NEED TO LOAD BATCHES ON MULTIPLE GPUS)
+        if self.args.load_batches == True: ## need OR statement for second GPU to load batches ?
             _X_ = f'{self.split}/X_*.npy'
             _y_ = f'{self.split}/y_*.npy'
             _msk_ = f'{self.split}/msk_*.npy'
@@ -33,17 +34,20 @@ class Dataset(torch.utils.data.Dataset):
             self.y_fn = [str(x) for x in sorted(self.path.glob(_y_))]
             self.msk_fn = [str(x) for x in sorted(self.path.glob(_msk_))]
         
-        # compile mini-batches from scratch
+        # compile mini-batches
         else: self.compile_batches()
 
-    def __len__(self):
-        return len(self.X_fnames)
+    def __len__(self) -> int:
+        return len(self.X_fn)
 
-    def __getitem__(self, idx):
-        X = np.load(self.X_fnames[idx], allow_pickle=True)
-        y = np.load(self.y_fnames[idx], allow_pickle=True)
-        msk = np.load(self.msk_fnames[idx], allow_pickle=True)
-        return X, y, msk, self.X_fnames[idx].split('X_')
+    def __getitem__(self, idx: int) -> Tuple[np.ndarray, 
+                                             np.ndarray, 
+                                             np.ndarray, 
+                                             list[str]]:
+        X = np.load(self.X_fn[idx], allow_pickle = True)
+        y = np.load(self.y_fn[idx], allow_pickle = True)
+        msk = np.load(self.msk_fn[idx], allow_pickle = True)
+        return X, y, msk, self.X_fn[idx].split('X_')
 
     def shuffle_pseudotime(self, pt: np.ndarray) -> np.ndarray:
         """Probabilistically swap cells' positions along trajectory at the given scale"""
@@ -183,14 +187,17 @@ class Dataset(torch.utils.data.Dataset):
             gpairs_batched = [list(filter(None, x)) for x in gpairs_batched]
         else: gpairs_batched = [gpairs]
 
-        # loop over groups of TF-target gpairs -> compile mini-batches: X, y, msk, g
+        # loop over groups of TF-target gpairs to compile mini-batches: X, y, msk, g
+        self.X_fn = [None] * len(gpairs_batched)
+        self.y_fn = [None] * len(gpairs_batched)
+        self.msk_fn = [None] * len(gpairs_batched)
         for j in tqdm(range(len(gpairs_batched))):
             X_fn = f'{out_pth}/X_batch{j}_size{len(gpairs_batched[j])}.npy'
             y_fn = f'{out_pth}/y_batch{j}_size{len(gpairs_batched[j])}.npy'
             msk_fn = f'{out_pth}/msk_batch{j}_size{len(gpairs_batched[j])}.npy'
             g_fn = f'{out_pth}/g_batch{j}_size{len(gpairs_batched[j])}.npy'
 
-            # compile 4D array of TF-target gpair trajectories with neighbor genes (optional)
+            # compile 4D array of TF-target gpair trajectories with optional neighbor genes
             gpairs_list_j = list(itertools.chain(*gpairs_batched[j]))
             if self.args.batch_size is None or j == len(gpairs_batched)-1: nsplit = len(gpairs_batched[j])
             else: nsplit = self.args.batch_size
@@ -198,12 +205,12 @@ class Dataset(torch.utils.data.Dataset):
             gpairs_ds_list = [x.reshape(1, 2+2*self.args.neighbors, 1, cell_idx.size) for x in gpairs_ds_list]
             ds_batch_j = np.concatenate(gpairs_ds_list, axis=0).astype(np.float32)
 
-            # compile gene names, regulation labels, and motif masks for gpairs in mini-batch
+            # compile gene names, regulation labels, and motif masks for gpairs
             g_batch_j = np.array([f'{g[0]} {g[1]}' for g in gpairs_batched[j]])
             y_batch_j = np.in1d(g_batch_j, ref_1d).reshape(ds_batch_j.shape[0], 1)
             msk_batch_j = np.in1d(g_batch_j, gpair_select).reshape(ds_batch_j.shape[0], 1)
 
-            # compile 4D array containing stacks of 2D joint-probability matrices for gpairs in mini-batch
+            # compile 4D array containing stacks of 2D joint-probability matrices
             X_batch_j = np.zeros((ds_batch_j.shape[0], nchannels, self.args.nbins, self.args.nbins))
             for i in range(X_batch_j.shape[0]):
                 for pair_idx in range(len(matrix_gpairs)):
@@ -240,23 +247,13 @@ class Dataset(torch.utils.data.Dataset):
             if self.args.mask_region in ['on-on', 'on']: 
                 X_batch_j[:, :, (self.args.nbins//2):, (self.args.nbins//2):] = 0.
 
-            # save X, y, msk, and g as pickled numpy files for mini-batch
+            # save X, y, msk, and g as pickled numpy files
             np.save(X_fn, X_batch_j.astype(np.float32), allow_pickle = True)
             np.save(y_fn, y_batch_j.astype(np.float32), allow_pickle = True)
             np.save(msk_fn, msk_batch_j.astype(np.float32), allow_pickle = True)
             np.save(g_fn, g_batch_j.reshape(-1, 1), allow_pickle = True)
 
-
-
-            ## start here
-
-            # keep mini-batch filenames for __len__ and __getitem__
-            idx = np.where(np.array(self.X_fn) == None)[0]
-            if idx.size > 0:
-                self.X_fnames[idx[0]] = X_fn
-                self.y_fnames[idx[0]] = y_fn
-                self.msk_fnames[idx[0]] = msk_fn
-            else:
-                self.X_fnames.extend([X_fn])
-                self.y_fnames.extend([y_fn])
-                self.msk_fnames.extend([msk_fn])
+            # retain filenames
+            self.X_fn[j] = X_fn
+            self.y_fn[j] = y_fn
+            self.msk_fn[j] = msk_fn
