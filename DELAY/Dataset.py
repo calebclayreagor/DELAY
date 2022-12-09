@@ -25,7 +25,7 @@ class Dataset(torch.utils.data.Dataset):
         self.path = Path(root_dir)
         self.split = split
 
-        # get mini-batch filenames (NEED TO LOAD BATCHES ON MULTIPLE GPUS)
+        # get mini-batch filenames (NEED TO LOAD BATCHES ON MULTIPLE GPUS) 
         if self.args.load_batches == True: ## need OR statement for second GPU to load batches ?
             _X_ = f'{self.split}/X_*.npy'
             _y_ = f'{self.split}/y_*.npy'
