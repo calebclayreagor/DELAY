@@ -38,7 +38,6 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--max_epochs', type = int, default = 100, help = '')
     parser.add_argument('--train', action = 'store_true', help = 'Train a new model from scratch')
     parser.add_argument('--test', action = 'store_true', help = 'Test a pre-trained model')
-    parser.add_argument('--load_batches', action = 'store_true', help = 'Load previously-constructed mini-batches of input matrices')
     parser.add_argument('-cfg', '--model_cfg', nargs = '*', default = ['1024', 'M', '512', 'M', '256', 'M', '128', 'M', '64'], help = '')
     parser.add_argument('--model_type', choices = ['inverted-vgg', 'vgg-cnnc', 'siamese-vgg', 'vgg'], default = 'inverted-vgg', help = '')
     parser.add_argument('--mask_lags', type = int, nargs = '*',  default = [], help = '')
@@ -66,44 +65,45 @@ if __name__ == '__main__':
     # ---------------------------
     print('Loading datasets...')
     training, validation, val_names = [], [], []
-    for fn in tqdm(sorted(glob.glob(f'{args.datadir}*/'))):
-        if os.path.isdir(fn):
+    for f in tqdm(sorted(glob.glob(f'{args.datadir}*/'))):
+        if os.path.isdir(f):
 
             # -----------------------------------------------
             # construct datasets for training or fine-tuning
             # -----------------------------------------------
-            train_dset, val_dset = None, None
+            train_ds, val_ds = None, None
             if args.train == True or args.finetune == True:
-                train_dset = Dataset(args, fn, 'training')
+                train_ds = Dataset(args, f, 'training')
                 if args.valsplit is not None:
-                    val_dset = Dataset(args, fn, 'validation')
+                    val_ds = Dataset(args, f, 'validation')
 
             # ------------------------------------------------
             # construct testing dataset ONLY (no fine-tuning)
             # ------------------------------------------------
             elif args.test == True:
-                val_dset = Dataset(args, fn, 'validation')
+                val_ds = Dataset(args, f, 'validation')
 
             # ---------------------------------------------------
             # construct prediction dataset ONLY (no fine-tuning)
             # ---------------------------------------------------
             elif args.predict == True:
-                train_dset = Dataset(args, fn, 'prediction')                
+                train_ds = Dataset(args, f, 'prediction')                
             
             input('STOPPED')
 
             # ------------------------
             # append training dataset
             # ------------------------
-            if train_dset is not None: 
-                training.append(train_dset)
+            if train_ds is not None: 
+                training.append(train_ds)
 
             # -----------------
             # validation split
             # -----------------
-            if val_dset is not None: 
-                validation.append(val_dset)
-                val_names.append(prefix + '_'.join(fn.split('/')[-2:]))
+            if val_ds is not None:
+                validation.append(val_ds)
+                name = '_'.join(f.split('/')[-2:])
+                val_names.append(prefix + name)
 
     # --------------------
     # training dataloader

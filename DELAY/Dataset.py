@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 
 import os
-import shutil
 import random
 import itertools
 import pickle
@@ -18,24 +17,25 @@ class Dataset(torch.utils.data.Dataset):
 
     def __init__(self, 
                  args: argparse.Namespace, 
-                 root_dir: str,
+                 ds_dir: str,
                  split: str) -> None:
 
         self.args = args
-        self.path = Path(root_dir)
+        self.ds_dir = ds_dir
         self.split = split
 
-        # get mini-batch filenames (NEED TO LOAD BATCHES ON MULTIPLE GPUS) 
-        if self.args.load_batches == True: ## need OR statement for second GPU to load batches ?
-            _X_ = f'{self.split}/X_*.npy'
-            _y_ = f'{self.split}/y_*.npy'
-            _msk_ = f'{self.split}/msk_*.npy'
-            self.X_fn = [str(x) for x in sorted(self.path.glob(_X_))]
-            self.y_fn = [str(x) for x in sorted(self.path.glob(_y_))]
-            self.msk_fn = [str(x) for x in sorted(self.path.glob(_msk_))]
-        
-        # compile mini-batches
-        else: self.compile_batches()
+        # get filenames for mini-batches
+        self.outdir = f'{ds_dir}{split}'
+        if os.path.isdir(self.outdir):
+            self.X_fn = [str(x) for x in sorted(Path(self.ds_dir).glob(f'{split}/X_*.npy'))]
+            self.y_fn = [str(x) for x in sorted(Path(self.ds_dir).glob(f'{split}/y_*.npy'))]
+            self.msk_fn = [str(x) for x in sorted(Path(self.ds_dir).glob(f'{split}/msk_*.npy'))]
+            print(f'Loaded existing batches for {"/".join(self.outdir.split("/")[-2:])}')
+   
+        else: 
+            # compile mini-batches
+            os.mkdir(self.outdir)
+            self.compile_batches()
 
     def __len__(self) -> int:
         return len(self.X_fn)
@@ -61,15 +61,13 @@ class Dataset(torch.utils.data.Dataset):
         """Use sce to compile mini-batches for dataset and save as .npy files"""
 
         # load normalized data and PseudoTime values from sce dataset
-        sce_pth = str(self.path)
-        ds = pd.read_csv(f'{sce_pth}/NormalizedData.csv', index_col = 0).T
+        ds = pd.read_csv(f'{self.ds_dir}/NormalizedData.csv', index_col = 0).T
         ds.columns = ds.columns.str.lower() # gene names in lowercase
-        pt = pd.read_csv(f"{sce_pth}/PseudoTime.csv", index_col = 0)
-        out_pth = f'{sce_pth}/{self.split}'
-        print(f'Compiling batches for {"/".join(out_pth.split("/")[-2:])}...')
+        pt = pd.read_csv(f'{self.ds_dir}/PseudoTime.csv', index_col = 0)
+        print(f'Compiling batches for {"/".join(self.outdir.split("/")[-2:])}...')
 
         # load gene-regulation pairs from refNetwork file
-        ref_network = pd.read_csv(f'{sce_pth}/refNetwork.csv')
+        ref_network = pd.read_csv(f'{self.ds_dir}/refNetwork.csv')
         ref_network['Gene1'] = ref_network['Gene1'].str.lower()
         ref_network['Gene2'] = ref_network['Gene2'].str.lower()
         g1 = list(ref_network['Gene1'].values)
@@ -78,23 +76,19 @@ class Dataset(torch.utils.data.Dataset):
 
         # list TFs from refNetwork or TranscriptionFactor file
         if self.args.predict == True:
-            tf = np.loadtxt(f'{sce_pth}/TranscriptionFactors.csv', delimiter=',', dtype=str)
+            tf = np.loadtxt(f'{self.ds_dir}/TranscriptionFactors.csv', delimiter=',', dtype=str)
             tf = list(np.char.lower(tf))
         else: tf = g1.copy()
 
         # choose appropriate TFs to use as Gene1 if cross-validating or predicting
         if self.args.valsplit is not None:
-            labels = pd.read_csv(f'{sce_pth}/splitLabels.csv', index_col = 0)
+            labels = pd.read_csv(f'{self.ds_dir}/splitLabels.csv', index_col = 0)
             labels.index = labels.index.str.lower()
             if self.split == 'training': 
                 g1 = list(labels[(labels.values != self.args.valsplit)].index)
             elif self.split == 'validation':
                 g1 = list(labels[(labels.values == self.args.valsplit)].index)
         elif self.split == 'prediction': g1 = tf.copy()
-
-        # remove previous results and create output directory
-        if os.path.isdir(out_pth): shutil.rmtree(out_pth)
-        os.mkdir(out_pth)
 
         # sort single cells by pseudotime values
         cell_idx = pt.sort_values('PseudoTime').index.values
@@ -179,7 +173,7 @@ class Dataset(torch.utils.data.Dataset):
             matrix_gpairs.append([1, 2 + self.args.neighbors + i])
         nchannels = len(matrix_gpairs) * (1 + self.args.max_lag)
 
-        # groups of TF-target gpairs for mini-batching
+        # groups of TF-target gpairs for mini-batches
         if self.args.batch_size is not None:
             gpairs_iter = [iter(gpairs)] * self.args.batch_size
             gpairs_iter = itertools.zip_longest(*gpairs_iter, fillvalue = None)
@@ -187,15 +181,15 @@ class Dataset(torch.utils.data.Dataset):
             gpairs_batched = [list(filter(None, x)) for x in gpairs_batched]
         else: gpairs_batched = [gpairs]
 
-        # loop over groups of TF-target gpairs to compile mini-batches: X, y, msk, g
+        # loop over groups of gpairs to compile mini-batches: X, y, msk, g
         self.X_fn = [None] * len(gpairs_batched)
         self.y_fn = [None] * len(gpairs_batched)
         self.msk_fn = [None] * len(gpairs_batched)
         for j in tqdm(range(len(gpairs_batched))):
-            X_fn = f'{out_pth}/X_batch{j}_size{len(gpairs_batched[j])}.npy'
-            y_fn = f'{out_pth}/y_batch{j}_size{len(gpairs_batched[j])}.npy'
-            msk_fn = f'{out_pth}/msk_batch{j}_size{len(gpairs_batched[j])}.npy'
-            g_fn = f'{out_pth}/g_batch{j}_size{len(gpairs_batched[j])}.npy'
+            X_fn_j = f'{self.outdir}/X_batch{j}_size{len(gpairs_batched[j])}.npy'
+            y_fn_j = f'{self.outdir}/y_batch{j}_size{len(gpairs_batched[j])}.npy'
+            msk_fn_j = f'{self.outdir}/msk_batch{j}_size{len(gpairs_batched[j])}.npy'
+            g_fn_j = f'{self.outdir}/g_batch{j}_size{len(gpairs_batched[j])}.npy'
 
             # compile 4D array of TF-target gpair trajectories with optional neighbor genes
             gpairs_list_j = list(itertools.chain(*gpairs_batched[j]))
@@ -248,12 +242,12 @@ class Dataset(torch.utils.data.Dataset):
                 X_batch_j[:, :, (self.args.nbins//2):, (self.args.nbins//2):] = 0.
 
             # save X, y, msk, and g as pickled numpy files
-            np.save(X_fn, X_batch_j.astype(np.float32), allow_pickle = True)
-            np.save(y_fn, y_batch_j.astype(np.float32), allow_pickle = True)
-            np.save(msk_fn, msk_batch_j.astype(np.float32), allow_pickle = True)
-            np.save(g_fn, g_batch_j.reshape(-1, 1), allow_pickle = True)
+            np.save(X_fn_j, X_batch_j.astype(np.float32), allow_pickle = True)
+            np.save(y_fn_j, y_batch_j.astype(np.float32), allow_pickle = True)
+            np.save(msk_fn_j, msk_batch_j.astype(np.float32), allow_pickle = True)
+            np.save(g_fn_j, g_batch_j.reshape(-1, 1), allow_pickle = True)
 
-            # retain filenames
-            self.X_fn[j] = X_fn
-            self.y_fn[j] = y_fn
-            self.msk_fn[j] = msk_fn
+            # save filenames
+            self.X_fn[j] = X_fn_j
+            self.y_fn[j] = y_fn_j
+            self.msk_fn[j] = msk_fn_j
