@@ -13,7 +13,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 class Dataset(torch.utils.data.Dataset):
-    """Compile and/or load mini-batches of joint-probability matrices for the given dataset"""
+    """Load or compile mini-batches of joint-probability matrices for the given dataset"""
 
     def __init__(self, 
                  args: argparse.Namespace, 
@@ -27,9 +27,9 @@ class Dataset(torch.utils.data.Dataset):
         # get filenames for mini-batches
         self.outdir = f'{ds_dir}{split}'
         if os.path.isdir(self.outdir):
-            self.X_fn = [str(x) for x in sorted(Path(self.ds_dir).glob(f'{split}/X_*.npy'))]
-            self.y_fn = [str(x) for x in sorted(Path(self.ds_dir).glob(f'{split}/y_*.npy'))]
-            self.msk_fn = [str(x) for x in sorted(Path(self.ds_dir).glob(f'{split}/msk_*.npy'))]
+            self.X_fn = list(map(str, sorted(Path(self.ds_dir).glob(f'{split}/X_*.npy'))))
+            self.y_fn = list(map(str, sorted(Path(self.ds_dir).glob(f'{split}/y_*.npy'))))
+            self.msk_fn = list(map(str, sorted(Path(self.ds_dir).glob(f'{split}/msk_*.npy'))))
             print(f'Loaded existing batches for {"/".join(self.outdir.split("/")[-2:])}')
    
         else: 
@@ -59,7 +59,6 @@ class Dataset(torch.utils.data.Dataset):
 
     def compile_batches(self) -> None:
         """Use sce to compile mini-batches for dataset and save as .npy files"""
-
         # load normalized data and PseudoTime values from sce dataset
         ds = pd.read_csv(f'{self.ds_dir}/NormalizedData.csv', index_col = 0).T
         ds.columns = ds.columns.str.lower() # gene names in lowercase
@@ -166,20 +165,17 @@ class Dataset(torch.utils.data.Dataset):
                   for g in itertools.product(sorted(set(g1)), ds.columns)]
         random.shuffle(gpairs)
 
+        # groups of TF-target gpairs for mini-batches
+        if self.args.batch_size is not None:
+            gpairs_batched = [gpairs[i : i + self.args.batch_size] for i in range(0, len(gpairs), self.args.batch_size)]
+        else: gpairs_batched = [gpairs]
+
         # indices for generating pairwise joint-probability matrices
         matrix_gpairs = [[0,1], [0,0], [1,1]]
         for i in range(self.args.neighbors):
             matrix_gpairs.append([0, 2 + i])
             matrix_gpairs.append([1, 2 + self.args.neighbors + i])
         nchannels = len(matrix_gpairs) * (1 + self.args.max_lag)
-
-        # groups of TF-target gpairs for mini-batches
-        if self.args.batch_size is not None:
-            gpairs_iter = [iter(gpairs)] * self.args.batch_size
-            gpairs_iter = itertools.zip_longest(*gpairs_iter, fillvalue = None)
-            gpairs_batched = [list(x) for x in gpairs_iter]
-            gpairs_batched = [list(filter(None, x)) for x in gpairs_batched]
-        else: gpairs_batched = [gpairs]
 
         # loop over groups of gpairs to compile mini-batches: X, y, msk, g
         self.X_fn = [None] * len(gpairs_batched)
