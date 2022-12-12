@@ -1,12 +1,18 @@
 import torch
 import torch.nn as nn
 from typing import List
+from typing import Union
+from typing import TypeVar
+
+Self = TypeVar('Self', bound = 'SiameseVGG')
 
 class SiameseVGG(nn.Module):
     """Siamese VGG network for primary and neighbor-gene matrices"""
 
-    def __init__(self, cfg: List, 
-                 neighbors: int) -> None:
+    def __init__(self: Self, 
+                 cfg: List[Union[int, str]], 
+                 neighbors: int
+                 ) -> Self:
         super(SiameseVGG, self).__init__()
         self.primary_features = self.make_layers(cfg)
         self.neighbor_features = self.make_layers(cfg)
@@ -24,19 +30,19 @@ class SiameseVGG(nn.Module):
                             nn.Linear(128, 1))
         self._initialize_weights()
 
-    def forward_primary(self, x: torch.Tensor) -> torch.Tensor:
+    def forward_primary(self: Self, x: torch.Tensor) -> torch.Tensor:
         out = torch.unsqueeze(x, 1)
         out = self.primary_features(out)
         out = torch.flatten(out, 1)
         return self.primary_embedding(out)
 
-    def forward_neighbor(self, x: torch.Tensor) -> torch.Tensor:
+    def forward_neighbor(self: Self, x: torch.Tensor) -> torch.Tensor:
         out = torch.unsqueeze(x, 1)
         out = self.neighbor_features(out)
         out = torch.flatten(out, 1)
         return self.neighbor_embedding(out)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         primary, neighbors = x[:, 0, :, :], x[:, 1:, :, :]
         out = self.forward_primary(primary)
         for idx in range(neighbors.size(1)):
@@ -44,12 +50,13 @@ class SiameseVGG(nn.Module):
             out = torch.cat([out, out2], axis=1)
         return self.classifier(out)
 
-    def _initialize_weights(self) -> None:
+    def _initialize_weights(self: Self) -> None:
         for m in self.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 nn.init.kaiming_uniform_(m.weight)
 
-    def make_layers(self, cfg: List, 
+    def make_layers(self: Self,
+                    cfg: List[Union[int, str]], 
                     in_channels: int = 1, 
                     dropout: float = 0.25
                     ) -> nn.Sequential:

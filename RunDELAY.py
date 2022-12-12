@@ -52,9 +52,9 @@ if __name__ == '__main__':
     parser.add_argument('--gpus', type = int, default = 2, help = '')
     args = parser.parse_args()
 
-    # -----------------
-    # setup run for pl
-    # -----------------
+    # ------------------
+    # set up run for pl
+    # ------------------
     pl.seed_everything(1234); callbacks = None
     if args.train == True: prefix = 'val_'
     elif args.test == True: prefix = 'test_'
@@ -89,7 +89,9 @@ if __name__ == '__main__':
                 name = '_'.join(f.split('/')[-2:])
                 valnames.append(prefix + name)
 
-    # training/validation DataLoaders
+    # --------------------------------
+    # training/validation dataloaders
+    # --------------------------------
     if len(training) > 0:
         training = ConcatDataset(training)
         train_loader = DataLoader(training, batch_size = None, shuffle = True, num_workers = args.workers, pin_memory = True)
@@ -99,29 +101,31 @@ if __name__ == '__main__':
         for i in range(len(validation)):
             val_loader[i] = DataLoader(validation[i], batch_size = None, num_workers = args.workers, pin_memory = True)
 
-    # -------------------------------------------------
-    # model backbone with specified configuration/type
-    # -------------------------------------------------
+    # -------------------------------------------
+    # neural network of given type/configuration
+    # -------------------------------------------
     args.model_cfg = [int(x) if x not in ['M','D'] else x for x in args.model_cfg]
     nchan = (3 + 2 * args.neighbors) * (1 + args.max_lag)
-    if args.model_type == 'inverted-vgg': backbone = VGG(cfg = args.model_cfg, in_channels = nchan)
-    elif args.model_type == 'vgg-cnnc': backbone = VGG_CNNC(cfg = args.model_cfg, in_channels = 1)
-    elif args.model_type == 'siamese-vgg': backbone = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors)
-    elif args.model_type == 'vgg': backbone = VGG_CNNC(cfg = args.model_cfg, in_channels = nchan)
-
-
-
-
-    ## start here
+    if args.model_type == 'inverted-vgg': net = VGG(cfg = args.model_cfg, in_channels = nchan)
+    elif args.model_type == 'vgg-cnnc': net = VGG_CNNC(cfg = args.model_cfg, in_channels = 1)
+    elif args.model_type == 'siamese-vgg': net = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors)
+    elif args.model_type == 'vgg': net = VGG_CNNC(cfg = args.model_cfg, in_channels = nchan)
 
     # ----------------------------
-    # model (init or pre-trained)
+    # model (init or pre-trained)   ## start here
     # ----------------------------
     if args.train == True:
-        model = Classifier(args, backbone, val_names, prefix)
+        model = Classifier(args, net, valnames, prefix)
+        input('STOP')
     else:
         model = Classifier.load_from_checkpoint(args.model, hparams = args,
-                backbone = backbone, val_names = val_names, prefix = prefix)
+                    backbone = net, val_names = valnames, prefix = prefix)
+
+
+
+    
+
+
 
     # -------
     # logger

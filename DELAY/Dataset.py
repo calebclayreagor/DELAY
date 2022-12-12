@@ -2,24 +2,25 @@ import argparse
 import torch
 import numpy as np
 import pandas as pd
-
 import os
 import random
 import itertools
 import pickle
-
 from typing import Tuple
 from typing import List
+from typing import TypeVar
 from pathlib import Path
 from tqdm import tqdm
+
+Self = TypeVar('Self', bound = 'Dataset')
 
 class Dataset(torch.utils.data.Dataset):
     """Load or compile mini-batches of joint-probability matrices for the given dataset"""
 
-    def __init__(self, 
+    def __init__(self: Self, 
                  args: argparse.Namespace, 
                  ds_dir: str,
-                 split: str) -> None:
+                 split: str) -> Self:
 
         self.args = args
         self.ds_dir = ds_dir
@@ -38,19 +39,16 @@ class Dataset(torch.utils.data.Dataset):
             os.mkdir(self.outdir)
             self.compile_batches()
 
-    def __len__(self) -> int:
+    def __len__(self: Self) -> int:
         return len(self.X_fn)
 
-    def __getitem__(self, idx: int) -> Tuple[np.ndarray, 
-                                             np.ndarray, 
-                                             np.ndarray, 
-                                             List[str]]:
+    def __getitem__(self: Self, idx: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]]:
         X = np.load(self.X_fn[idx], allow_pickle = True)
         y = np.load(self.y_fn[idx], allow_pickle = True)
         msk = np.load(self.msk_fn[idx], allow_pickle = True)
         return X, y, msk, self.X_fn[idx].split('X_')
 
-    def shuffle_pseudotime(self, pt: np.ndarray) -> np.ndarray:
+    def shuffle_pseudotime(self: Self, pt: np.ndarray) -> np.ndarray:
         """Probabilistically swap cells' positions along trajectory at the given scale"""
         for i in np.arange(pt.size):
             j = np.random.normal(loc = 0, scale = self.args.shuffle * pt.size)
@@ -58,7 +56,7 @@ class Dataset(torch.utils.data.Dataset):
             pt[[i, _i_]] = pt[[_i_, i]]
         return pt
 
-    def compile_batches(self) -> None:
+    def compile_batches(self: Self) -> None:
         """Use sce to compile mini-batches for dataset and save as .npy files"""
         # load normalized data and PseudoTime values from sce dataset
         ds = pd.read_csv(f'{self.ds_dir}/NormalizedData.csv', index_col = 0).T

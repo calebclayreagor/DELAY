@@ -1,96 +1,122 @@
-import glob, pathlib, pickle
-import numpy as np, pandas as pd
-import torch, torch.nn as nn
+import argparse
+import pathlib
+import pickle
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
 import pytorch_lightning as pl
 import torch.nn.functional as F
+from typing import Union
+from typing import List
+from typing import Tuple
+from typing import TypeVar
 
 from pytorch_lightning.metrics.classification  import PrecisionRecallCurve as PRCurve
 from pytorch_lightning.metrics.functional      import precision_recall_curve as prc
 from pytorch_lightning.metrics.functional      import auc, roc
 
+from Networks.VGG_CNNC import VGG_CNNC
+from Networks.SiameseVGG import SiameseVGG
+from Networks.vgg import VGG
+
+Self = TypeVar('Self', bound = 'Classifier')
+
+## TO-DO: DOUBLE CHECK HPARAM NAMES/TYPES
+
 class Classifier(pl.LightningModule):
-    """Deep neural network for binary classification of lagged gene-gene images"""
-    
-    def __init__(self, hparams, backbone, val_names, prefix):
+    """Deep neural network for classification of TF-target joint-probability matrices"""
+
+    def __init__(self: Self,
+                 hparams: argparse.Namespace, 
+                 backbone: Union[VGG, SiameseVGG, VGG_CNNC], 
+                 valnames: List[str],
+                 prefix: str) -> Self:
         super().__init__()
         self.save_hyperparameters(hparams)
         self.backbone = backbone
-        self.val_names = val_names
+        self.valnames = valnames
         self.prefix = prefix
 
-        # store predictions & targets in pytortch_lightning precision-recall curve
-        self.val_prc = nn.ModuleList([PRCurve(pos_label=1) for x in self.val_names])
+        # store predictions/targets in pytortch_lightning precision-recall curve
+        self.val_prc = nn.ModuleList([PRCurve(pos_label = 1) for _ in self.valnames])
 
-    def list_dir(self, _dir_, _subdir_):
-        return [str(x) for x in sorted(pathlib.Path(_dir_).glob(_subdir_))]
+    def configure_optimizers(self: Self) -> torch.optim.sgd.SGD:
+        return torch.optim.SGD(self.parameters(), lr = self.hparams.learning_rate)
 
-    def configure_optimizers(self):
-        return torch.optim.SGD(self.parameters(), lr=self.hparams.lr_init)
-
-    def forward(self, x):
+    def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         return self.backbone(x)
 
-    def training_step(self, train_batch, batch_idx):
+    def training_step(self: Self,
+                      train_batch: Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]],
+                      batch_idx: int
+                      ) -> torch.Tensor:
         X, y, _, _ = train_batch
         out = self.forward(X)
-        pred = torch.sigmoid(out)
-        loss = F.binary_cross_entropy_with_logits(
-                    out, y, weight=y.sum()/y.size(0),
-                    reduction='sum') / self.hparams.batch_size
-
-        self.log('train_loss', loss,
-                 on_step=True,
-                 on_epoch=True,
-                 sync_dist=True,
-                 add_dataloader_idx=False)
+        loss = F.binary_cross_entropy_with_logits(out, y, weight = y.sum()/y.size(0), reduction = 'sum')/self.hparams.batch_size
+        self.log('train_loss', loss, on_step = True, on_epoch = True, sync_dist = True, add_dataloader_idx = False)
         return loss
 
-    def validation_step(self, val_batch, batch_idx, dataset_idx=0) -> None:
+    def validation_step(self: Self,
+                        val_batch: Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]],
+                        batch_idx: int,
+                        dataset_idx: int = 0
+                        ) -> None:
         X, y, _, _ = val_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
-        loss = F.binary_cross_entropy_with_logits(
-                    out, y, weight=y.sum()/y.size(0),
-                    reduction='sum') / self.hparams.batch_size
+        loss = F.binary_cross_entropy_with_logits(out, y, weight = y.sum()/y.size(0), reduction = 'sum')/self.hparams.batch_size
+        self.log(f'{self.prefix}loss', loss, on_step = False, on_epoch = True, sync_dist = True, add_dataloader_idx = False)
 
         # update precision-recall curve
         self.val_prc[dataset_idx](pred, y)
 
-        self.log(f'{self.prefix}loss', loss,
-                 on_step=False,
-                 on_epoch=True,
-                 sync_dist=True,
-                 add_dataloader_idx=False)
-
-    def test_step(self, test_batch, batch_idx, dataset_idx=0) -> None:
-        X, y, msk, fname = test_batch
+    def test_step(self: Self,
+                  test_batch: Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]],
+                  batch_idx: int,
+                  dataset_idx: int = 0
+                  ) -> None:
+        X, y, msk, fn = test_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
 
-        pred_fname = fname[0] + f'pred_seed={self.hparams.global_seed}_' + fname[1]
-        np.save(pred_fname, pred.cpu().detach().numpy().astype(np.float32), allow_pickle=True)
-
-        if msk.sum()>0:
-            # update precision-recall curve (opt mask)
-            pred_msk = torch.masked_select(pred, msk>0)
-            y_msk = torch.masked_select(y, msk>0)
+        # update precision-recall curve for unmasked gpairs (optional)
+        if msk.sum() > 0:
+            pred_msk = torch.masked_select(pred, msk > 0)
+            y_msk = torch.masked_select(y, msk > 0)
             self.val_prc[dataset_idx](pred_msk, y_msk)
 
-    def predict_step(self, pred_batch, batch_idx, dataset_idx=0) -> None:
-        X, _, _, fname = pred_batch
+        # save predictions for testing mini-batch as .npy file
+        fn_out = f'{fn[0]}pred_k={self.hparams.valsplit}_{fn[1]}'
+        np.save(fn_out, pred.cpu().detach().numpy().astype(np.float32), allow_pickle = True)
+
+    def predict_step(self: Self,
+                     pred_batch: Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]],
+                     batch_idx: int,
+                     dataset_idx: int = 0
+                     ) -> None:
+        X, _, _, fn = pred_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
 
-        pred_fname = fname[0] + f'pred_seed={self.hparams.global_seed}_' + fname[1]
-        np.save(pred_fname, pred.cpu().detach().numpy().astype(np.float32), allow_pickle=True)
+        # save predictions for mini-batch as .npy file
+        fn_out = f'{fn[0]}pred_{fn[1]}'
+        np.save(fn_out, pred.cpu().detach().numpy().astype(np.float32), allow_pickle = True)
+
+
+
+
+
+    ## start here
+    
+    def list_dir(self, _dir_, _subdir_):
+        return [str(x) for x in sorted(pathlib.Path(_dir_).glob(_subdir_))]
 
     def on_validation_epoch_end(self):
-        val_auprc = torch.zeros((len(self.val_names),),
-                    device=torch.cuda.current_device())
-        val_auroc = torch.zeros((len(self.val_names),),
-                    device=torch.cuda.current_device())
-        for idx in range(len(self.val_names)):
-            name = self.val_names[idx]
+        val_auprc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
+        val_auroc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
+        for idx in range(len(self.valnames)):
+            name = self.valnames[idx]
             # NOTE: currently, AUC averaged across processes
             preds = torch.cat(self.val_prc[idx].preds, dim=0)
             target = torch.cat(self.val_prc[idx].target, dim=0)
@@ -120,12 +146,10 @@ class Classifier(pl.LightningModule):
                  add_dataloader_idx=False)
 
     def on_test_epoch_end(self):
-        test_auprc = torch.zeros((len(self.val_names),),
-                     device=torch.cuda.current_device())
-        test_auroc = torch.zeros((len(self.val_names),),
-                     device=torch.cuda.current_device())
-        for idx in range(len(self.val_names)):
-            name = self.val_names[idx]
+        test_auprc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
+        test_auroc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
+        for idx in range(len(self.valnames)):
+            name = self.valnames[idx]
             # NOTE: currently, AUC averaged across processes
             preds = torch.cat(self.val_prc[idx].preds, dim=0)
             target = torch.cat(self.val_prc[idx].target, dim=0)
