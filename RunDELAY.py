@@ -20,9 +20,9 @@ sys.path.append('Networks/')
 
 if __name__ == '__main__':
 
-    # ----------
-    # arguments
-    # ----------
+    # ----------------
+    # argument parser    TO-DO: ARGUMENT DESCRIPTIONS
+    # ----------------
     parser = argparse.ArgumentParser(prog = 'DELAY', description = 'Depicting pseudotime-lagged causality for accurate gene-regulatory inference')
     parser.add_argument('datadir', help = 'Full path to directory containing one or more single-cell datasets')
     parser.add_argument('outdir', help = 'Relative directory for the logged results')
@@ -52,94 +52,67 @@ if __name__ == '__main__':
     parser.add_argument('--gpus', type = int, default = 2, help = '')
     args = parser.parse_args()
 
-    # ------
-    # setup
-    # ------
+    # -----------------
+    # setup run for pl
+    # -----------------
     pl.seed_everything(1234); callbacks = None
     if args.train == True: prefix = 'val_'
     elif args.test == True: prefix = 'test_'
     elif args.predict == True: prefix = 'pred_'
 
-    # ---------------------------
-    # load or construct datasets
-    # ---------------------------
+    # ---------------------------------------------
+    # load/compile mini-batches for given datasets
+    # ---------------------------------------------
     print('Loading datasets...')
-    training, validation, val_names = [], [], []
+    training, validation, valnames = [], [], []
     for f in tqdm(sorted(glob.glob(f'{args.datadir}*/'))):
         if os.path.isdir(f):
 
-            # -----------------------------------------------
-            # construct datasets for training or fine-tuning
-            # -----------------------------------------------
+            # training/validation dsets (training/fine-tuning)
             train_ds, val_ds = None, None
             if args.train == True or args.finetune == True:
                 train_ds = Dataset(args, f, 'training')
                 if args.valsplit is not None:
                     val_ds = Dataset(args, f, 'validation')
 
-            # ------------------------------------------------
-            # construct testing dataset ONLY (no fine-tuning)
-            # ------------------------------------------------
+            # testing/prediction dsets ONLY (no fine-tuning)
             elif args.test == True:
                 val_ds = Dataset(args, f, 'validation')
-
-            # ---------------------------------------------------
-            # construct prediction dataset ONLY (no fine-tuning)
-            # ---------------------------------------------------
             elif args.predict == True:
-                train_ds = Dataset(args, f, 'prediction')                
-            
-            input('STOPPED')
+                train_ds = Dataset(args, f, 'prediction')
 
-            # ------------------------
-            # append training dataset
-            # ------------------------
+            # update lists/names for dsets
             if train_ds is not None: 
                 training.append(train_ds)
-
-            # -----------------
-            # validation split
-            # -----------------
             if val_ds is not None:
                 validation.append(val_ds)
                 name = '_'.join(f.split('/')[-2:])
-                val_names.append(prefix + name)
+                valnames.append(prefix + name)
 
-    # --------------------
-    # training dataloader
-    # --------------------
+    # training/validation DataLoaders
     if len(training) > 0:
         training = ConcatDataset(training)
-        train_loader = DataLoader(training, 
-                                  batch_size = None, 
-                                  shuffle = True, 
-                                  num_workers = args.workers, 
-                                  pin_memory = True)
-
-    # ----------------------
-    # validation dataloader
-    # ----------------------
+        train_loader = DataLoader(training, batch_size = None, shuffle = True, num_workers = args.workers, pin_memory = True)
+        
     if len(validation) > 0:
         val_loader = [None] * len(validation)
         for i in range(len(validation)):
-            val_loader[i] = DataLoader(validation[i], 
-                                       batch_size = None, 
-                                       num_workers = args.workers, 
-                                       pin_memory = True)
+            val_loader[i] = DataLoader(validation[i], batch_size = None, num_workers = args.workers, pin_memory = True)
+
+    # -------------------------------------------------
+    # model backbone with specified configuration/type
+    # -------------------------------------------------
+    args.model_cfg = [int(x) if x not in ['M','D'] else x for x in args.model_cfg]
+    nchan = (3 + 2 * args.neighbors) * (1 + args.max_lag)
+    if args.model_type == 'inverted-vgg': backbone = VGG(cfg = args.model_cfg, in_channels = nchan)
+    elif args.model_type == 'vgg-cnnc': backbone = VGG_CNNC(cfg = args.model_cfg, in_channels = 1)
+    elif args.model_type == 'siamese-vgg': backbone = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors)
+    elif args.model_type == 'vgg': backbone = VGG_CNNC(cfg = args.model_cfg, in_channels = nchan)
+
 
 
 
     ## start here
-
-    # ---------
-    # backbone
-    # ---------
-    args.model_cfg = [int(x) for x in args.model_cfg if x not in ['M','D']]
-    nchans = (3 + 2 * args.neighbors) * (1 + args.max_lag)
-    if args.model_type == 'inverted-vgg': backbone = VGG(cfg = args.model_cfg, in_channels = nchans)
-    elif args.model_type == 'vgg-cnnc': backbone = VGG_CNNC(cfg = args.model_cfg, in_channels = 1)
-    elif args.model_type == 'siamese-vgg': backbone = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors)
-    elif args.model_type == 'vgg': backbone = VGG_CNNC(cfg = args.model_cfg, in_channels = nchans)
 
     # ----------------------------
     # model (init or pre-trained)

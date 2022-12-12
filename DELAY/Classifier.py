@@ -10,6 +10,7 @@ from pytorch_lightning.metrics.functional      import auc, roc
 
 class Classifier(pl.LightningModule):
     """Deep neural network for binary classification of lagged gene-gene images"""
+    
     def __init__(self, hparams, backbone, val_names, prefix):
         super().__init__()
         self.save_hyperparameters(hparams)

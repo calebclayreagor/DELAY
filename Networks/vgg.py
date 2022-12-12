@@ -1,35 +1,39 @@
 import torch
 import torch.nn as nn
+from typing import List
 
 class VGG(nn.Module):
-    def __init__(self, cfg, in_channels):
+    """VGG-like network without a linear layer"""
+
+    def __init__(self, cfg: List,
+                 in_channels: int) -> None:
         super(VGG, self).__init__()
-        self.cfg, self.in_channels = cfg, in_channels
-        self.features = self.make_layers()
+        self.features = self.make_layers(cfg, in_channels)
         self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.classifier = nn.Sequential(
-                nn.Linear(cfg[-1], 1))
+        self.classifier = nn.Linear(cfg[-1], 1)
         self._initialize_weights()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = self.features(x)
         out = self.avgpool(out)
         out = torch.flatten(out, 1)
         return self.classifier(out)
 
-    def _initialize_weights(self):
+    def _initialize_weights(self) -> None:
         for m in self.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
                 nn.init.kaiming_uniform_(m.weight)
 
-    def make_layers(self, negative_slope=0.2):
+    def make_layers(self, cfg: List,
+                    in_channels: int, 
+                    negative_slope: float = 0.2
+                    ) -> nn.Sequential:
         layers: List[nn.Module] = []
-        in_channels = self.in_channels
-        for v in self.cfg:
+        for v in cfg:
             if v == 'M':
-                layers += [ nn.MaxPool2d(kernel_size=2) ]
+                layers.append(nn.MaxPool2d(kernel_size = 2))
             else:
-                layers += [ nn.Conv2d(in_channels, v, kernel_size=3, padding=1),
-                            nn.LeakyReLU(negative_slope=negative_slope) ]
+                layers.append(nn.Conv2d(in_channels, v, kernel_size = 3, padding = 1))
+                layers.append(nn.LeakyReLU(negative_slope = negative_slope))
                 in_channels = v
         return nn.Sequential(*layers)

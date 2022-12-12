@@ -9,6 +9,7 @@ import itertools
 import pickle
 
 from typing import Tuple
+from typing import List
 from pathlib import Path
 from tqdm import tqdm
 
@@ -30,7 +31,7 @@ class Dataset(torch.utils.data.Dataset):
             self.X_fn = list(map(str, sorted(Path(self.ds_dir).glob(f'{split}/X_*.npy'))))
             self.y_fn = list(map(str, sorted(Path(self.ds_dir).glob(f'{split}/y_*.npy'))))
             self.msk_fn = list(map(str, sorted(Path(self.ds_dir).glob(f'{split}/msk_*.npy'))))
-            print(f'Loaded existing batches for {"/".join(self.outdir.split("/")[-2:])}')
+            print(f'Loaded existing batches for {"/".join(self.outdir.split("/")[-2:])}...')
    
         else: 
             # compile mini-batches
@@ -43,7 +44,7 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx: int) -> Tuple[np.ndarray, 
                                              np.ndarray, 
                                              np.ndarray, 
-                                             list[str]]:
+                                             List[str]]:
         X = np.load(self.X_fn[idx], allow_pickle = True)
         y = np.load(self.y_fn[idx], allow_pickle = True)
         msk = np.load(self.msk_fn[idx], allow_pickle = True)
