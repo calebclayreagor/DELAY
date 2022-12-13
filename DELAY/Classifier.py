@@ -1,12 +1,13 @@
 import argparse
-import pathlib
+import glob
 import pickle
+import torch
 import numpy as np
 import pandas as pd
-import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 import torch.nn.functional as F
+from pathlib import Path
 from typing import Union
 from typing import List
 from typing import Tuple
@@ -22,8 +23,6 @@ from Networks.vgg import VGG
 
 Self = TypeVar('Self', bound = 'Classifier')
 
-## TO-DO: DOUBLE CHECK HPARAM NAMES/TYPES
-
 class Classifier(pl.LightningModule):
     """Deep neural network for classification of TF-target joint-probability matrices"""
 
@@ -38,10 +37,10 @@ class Classifier(pl.LightningModule):
         self.valnames = valnames
         self.prefix = prefix
 
-        # store predictions/targets in pytortch_lightning precision-recall curve
+        # store predictions/targets in pytortch_lightning precision-recall curves
         self.val_prc = nn.ModuleList([PRCurve(pos_label = 1) for _ in self.valnames])
 
-    def configure_optimizers(self: Self) -> torch.optim.sgd.SGD:
+    def configure_optimizers(self: Self) -> torch.optim.SGD:
         return torch.optim.SGD(self.parameters(), lr = self.hparams.learning_rate)
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
@@ -86,7 +85,7 @@ class Classifier(pl.LightningModule):
             y_msk = torch.masked_select(y, msk > 0)
             self.val_prc[dataset_idx](pred_msk, y_msk)
 
-        # save predictions for testing mini-batch as .npy file
+        # save predictions for mini-batch as .npy file
         fn_out = f'{fn[0]}pred_k={self.hparams.valsplit}_{fn[1]}'
         np.save(fn_out, pred.cpu().detach().numpy().astype(np.float32), allow_pickle = True)
 
@@ -103,108 +102,58 @@ class Classifier(pl.LightningModule):
         fn_out = f'{fn[0]}pred_{fn[1]}'
         np.save(fn_out, pred.cpu().detach().numpy().astype(np.float32), allow_pickle = True)
 
-
-
-
-
-    ## start here
-    
-    def list_dir(self, _dir_, _subdir_):
-        return [str(x) for x in sorted(pathlib.Path(_dir_).glob(_subdir_))]
-
-    def on_validation_epoch_end(self):
+    def on_validation_epoch_end(self: Self) -> None:
+        """Compute dataset and average AUC values for PR/ROC from stored predictions/targets (averaged across GPUs)"""
         val_auprc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         val_auroc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         for idx in range(len(self.valnames)):
-            name = self.valnames[idx]
-            # NOTE: currently, AUC averaged across processes
-            preds = torch.cat(self.val_prc[idx].preds, dim=0)
-            target = torch.cat(self.val_prc[idx].target, dim=0)
-            precision, recall, _ = prc(preds, target, pos_label=1)
-            fpr, tpr, _ = roc(preds, target, pos_label=1)
-            auprc, auroc = auc(recall, precision), auc(fpr, tpr)
-            val_auprc[idx] = auprc; val_auroc[idx] = auroc
-            self.log(f'{name}_auprc', auprc,
-                     sync_dist=True,
-                     add_dataloader_idx=False)
-            self.log(f'{name}_auroc', auroc,
-                     sync_dist=True,
-                     add_dataloader_idx=False)
-            self.val_prc[idx].reset()
+            pred = torch.cat(self.val_prc[idx].preds, dim = 0)
+            tgt = torch.cat(self.val_prc[idx].target, dim = 0)
+            prec, recall, _ = prc(pred, tgt, pos_label = 1)
+            fpr, tpr, _ = roc(pred, tgt, pos_label = 1)
+            val_auprc[idx], val_auroc[idx] = auc(recall, prec), auc(fpr, tpr)
+            self.log(f'{self.valnames[idx]}_auprc', val_auprc[idx], sync_dist = True, add_dataloader_idx = False)
+            self.log(f'{self.valnames[idx]}_auroc', val_auroc[idx], sync_dist = True, add_dataloader_idx = False)
+            self.val_prc[idx].reset() # reset predictions/targets for next epoch
+        avg_auprc, avg_auroc = val_auprc.mean(), val_auroc.mean()
+        self.log(f'{self.prefix}avg_auprc', avg_auprc, sync_dist = True, add_dataloader_idx = False)
+        self.log(f'{self.prefix}avg_auroc', avg_auroc, sync_dist = True, add_dataloader_idx = False)
+        self.log(f'{self.prefix}avg_auc', (avg_auprc + avg_auroc)/2, sync_dist = True, add_dataloader_idx = False)
 
-        avg_auroc = val_auroc.mean()
-        avg_auprc = val_auprc.mean()
-        avg_auc = (avg_auroc + avg_auprc)/2
-        self.log(f'{self.prefix}avg_auroc', avg_auroc,
-                 sync_dist=True,
-                 add_dataloader_idx=False)
-        self.log(f'{self.prefix}avg_auprc', avg_auprc,
-                 sync_dist=True,
-                 add_dataloader_idx=False)
-        self.log(f'{self.prefix}avg_auc', avg_auc,
-                 sync_dist=True,
-                 add_dataloader_idx=False)
-
-    def on_test_epoch_end(self):
+    def on_test_epoch_end(self: Self) -> None:
+        """Compute dataset and average AUC values for PR/ROC from stored predictions/targets (averaged across GPUs)"""
         test_auprc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         test_auroc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         for idx in range(len(self.valnames)):
-            name = self.valnames[idx]
-            # NOTE: currently, AUC averaged across processes
-            preds = torch.cat(self.val_prc[idx].preds, dim=0)
-            target = torch.cat(self.val_prc[idx].target, dim=0)
-            precision, recall, _ = prc(preds, target, pos_label=1)
-            fpr, tpr, _ = roc(preds, target, pos_label=1)
-            auprc, auroc = auc(recall, precision), auc(fpr, tpr)
-            test_auprc[idx] = auprc; test_auroc[idx] = auroc
-            density = target.sum() / target.size(0)
-            self.log(f'_{name}_auprc', auprc,
-                     sync_dist=True,
-                     add_dataloader_idx=False)
-            self.log(f'_{name}_auroc', auroc,
-                     sync_dist=True,
-                     add_dataloader_idx=False)
-            self.log(f'_{name}_density', density,
-                     sync_dist=True,
-                     add_dataloader_idx=False)
-            self.val_prc[idx].reset()
+            pred = torch.cat(self.val_prc[idx].preds, dim = 0)
+            tgt = torch.cat(self.val_prc[idx].target, dim = 0)
+            prec, recall, _ = prc(pred, tgt, pos_label = 1)
+            fpr, tpr, _ = roc(pred, tgt, pos_label = 1)
+            test_auprc[idx], test_auroc[idx] = auc(recall, prec), auc(fpr, tpr)
+            self.log(f'_{self.valnames[idx]}_auprc', test_auprc[idx], sync_dist = True, add_dataloader_idx = False)
+            self.log(f'_{self.valnames[idx]}_auroc', test_auroc[idx], sync_dist = True, add_dataloader_idx = False)
+            self.log(f'_{self.valnames[idx]}_density', tgt.sum()/tgt.size(0), sync_dist = True, add_dataloader_idx = False)
+            self.val_prc[idx].reset() # reset predictions/targets
+        avg_auprc, avg_auroc = test_auprc.mean(), test_auroc.mean()
+        self.log(f'_{self.prefix}avg_auprc', avg_auprc, sync_dist = True, add_dataloader_idx = False)
+        self.log(f'_{self.prefix}avg_auroc', avg_auroc, sync_dist = True, add_dataloader_idx = False)
+        self.log(f'_{self.prefix}avg_auc', (avg_auprc + avg_auroc)/2, sync_dist = True, add_dataloader_idx = False)
 
-        avg_auroc = test_auroc.mean()
-        avg_auprc = test_auprc.mean()
-        avg_auc = (avg_auroc + avg_auprc)/2
-        self.log(f'_{self.prefix}avg_auroc', avg_auroc,
-                 sync_dist=True,
-                 add_dataloader_idx=False)
-        self.log(f'_{self.prefix}avg_auprc', avg_auprc,
-                 sync_dist=True,
-                 add_dataloader_idx=False)
-        self.log(f'_{self.prefix}avg_auc', avg_auc,
-                 sync_dist=True,
-                 add_dataloader_idx=False)
-
-    def on_predict_end(self):
-        save_dir = f'lightning_logs/{self.hparams.output_dir}/'
-        if self.hparams.data_type=='scrna-seq':
-            sce_fname = self.list_dir(self.hparams.datasets_dir,
-                            f'*/*/*/*/ExpressionData.csv')
-        elif self.hparams.data_type=='scatac-seq':
-            sce_fname = self.list_dir(self.hparams.datasets_dir,
-                            f'*/*/*/*/AccessibilityData.csv')
-        tfs_fname = self.list_dir(self.hparams.datasets_dir,
-                        f'*/*/*/*/TranscriptionFactors.csv')
-        genes = pd.read_csv(sce_fname[0], index_col=0).index.str.lower()
-        tfs = pd.read_csv(tfs_fname[0], index_col=0).index.str.lower()
-        probs_matrix = pd.DataFrame(0., index=tfs, columns=genes)
-        pred_fnames = self.list_dir(self.hparams.datasets_dir,
-            f'*/*/*/*/*/pred_seed={self.hparams.global_seed}*.npy')
-        for idx in range(len(pred_fnames)):
-            path = pred_fnames[idx].split('/')
-            g_fname = '/'.join(path[0:-1]) + '/g_' + '_'.join(path[-1].split('_')[2:])
-            pred = np.load(pred_fnames[idx], allow_pickle=True).reshape(-1)
-            g = np.load(g_fname, allow_pickle=True).reshape(-1)
-            g = np.stack(np.char.split(g, ' '), axis=0)
-            ii = np.where(g[:,0][:,None]==tfs[None,:])[1]
-            jj = np.where(g[:,1][:,None]==genes[None,:])[1]
-            probs_matrix.values[ii, jj] = pred
-        probs_matrix.to_csv(
-            f'{save_dir}predicted_probabilities_seed={self.hparams.global_seed}.csv')
+    def on_predict_end(self: Self) -> None:
+        """Compile and save final matrix of gene-regulatory predictions from mini-batches"""
+        ds_dir = f'{self.hparams.datadir}*/'
+        tf_fn = glob.glob(f'{ds_dir}TranscriptionFactors.csv')[0]
+        ds_fn = glob.glob(f'{ds_dir}NormalizedData.csv')[0]
+        g1 = np.char.lower(np.loadtxt(tf_fn, delimiter = ',', dtype = str))
+        g2 = pd.read_csv(ds_fn, index_col = 0).index.str.lower()
+        pred_mat = pd.DataFrame(0., index = g1, columns = g2)
+        pred_fn = list(map(str, sorted(Path(ds_dir).glob(f'prediction/pred_*.npy'))))
+        g_fn = list(map(str, sorted(Path(ds_dir).glob(f'prediction/g_*.npy'))))
+        for j in range(len(pred_fn)):
+            pred_j = np.load(pred_fn[j], allow_pickle = True).reshape(-1)
+            g_j = np.load(g_fn[j], allow_pickle = True).reshape(-1)
+            g_j = np.stack(np.char.split(g_j, ' '), axis = 0)
+            ii = np.where(g_j[:, 0][:, None] == g1[None, :])[1]
+            jj = np.where(g_j[:, 1][:, None] == g2[None, :])[1]
+            pred_mat.values[ii, jj] = pred_j
+        pred_mat.to_csv(f'lightning_logs/{self.hparams.outdir}/regPredictions.csv')

@@ -1,11 +1,11 @@
 import argparse
 import torch
-import numpy as np
-import pandas as pd
 import os
 import random
 import itertools
 import pickle
+import numpy as np
+import pandas as pd
 from typing import Tuple
 from typing import List
 from typing import TypeVar
@@ -59,13 +59,13 @@ class Dataset(torch.utils.data.Dataset):
     def compile_batches(self: Self) -> None:
         """Use sce to compile mini-batches for dataset and save as .npy files"""
         # load normalized data and PseudoTime values from sce dataset
-        ds = pd.read_csv(f'{self.ds_dir}/NormalizedData.csv', index_col = 0).T
+        ds = pd.read_csv(f'{self.ds_dir}NormalizedData.csv', index_col = 0).T
         ds.columns = ds.columns.str.lower() # gene names in lowercase
-        pt = pd.read_csv(f'{self.ds_dir}/PseudoTime.csv', index_col = 0)
+        pt = pd.read_csv(f'{self.ds_dir}PseudoTime.csv', index_col = 0)
         print(f'Compiling batches for {"/".join(self.outdir.split("/")[-2:])}...')
 
         # load gene-regulation pairs from refNetwork file
-        ref_network = pd.read_csv(f'{self.ds_dir}/refNetwork.csv')
+        ref_network = pd.read_csv(f'{self.ds_dir}refNetwork.csv')
         ref_network['Gene1'] = ref_network['Gene1'].str.lower()
         ref_network['Gene2'] = ref_network['Gene2'].str.lower()
         g1 = list(ref_network['Gene1'].values)
@@ -74,13 +74,13 @@ class Dataset(torch.utils.data.Dataset):
 
         # list TFs from refNetwork or TranscriptionFactor file
         if self.args.predict == True:
-            tf = np.loadtxt(f'{self.ds_dir}/TranscriptionFactors.csv', delimiter=',', dtype=str)
+            tf = np.loadtxt(f'{self.ds_dir}TranscriptionFactors.csv', delimiter=',', dtype=str)
             tf = list(np.char.lower(tf))
         else: tf = g1.copy()
 
         # choose appropriate TFs to use as Gene1 if cross-validating or predicting
         if self.args.valsplit is not None:
-            labels = pd.read_csv(f'{self.ds_dir}/splitLabels.csv', index_col = 0)
+            labels = pd.read_csv(f'{self.ds_dir}splitLabels.csv', index_col = 0)
             labels.index = labels.index.str.lower()
             if self.split == 'training': 
                 g1 = list(labels[(labels.values != self.args.valsplit)].index)

@@ -16,6 +16,7 @@ from DELAY.Classifier import Classifier
 from Networks.VGG_CNNC import VGG_CNNC
 from Networks.SiameseVGG import SiameseVGG
 from Networks.vgg import VGG
+
 sys.path.append('Networks/')
 
 if __name__ == '__main__':
@@ -75,13 +76,13 @@ if __name__ == '__main__':
                 if args.valsplit is not None:
                     val_ds = Dataset(args, f, 'validation')
 
-            # testing/prediction dsets ONLY (no fine-tuning)
+            # testing/prediction dsets - ONLY (no fine-tuning)
             elif args.test == True:
                 val_ds = Dataset(args, f, 'validation')
             elif args.predict == True:
                 train_ds = Dataset(args, f, 'prediction')
 
-            # update lists/names for dsets
+            # update lists, names for dsets
             if train_ds is not None: 
                 training.append(train_ds)
             if val_ds is not None:
@@ -101,9 +102,9 @@ if __name__ == '__main__':
         for i in range(len(validation)):
             val_loader[i] = DataLoader(validation[i], batch_size = None, num_workers = args.workers, pin_memory = True)
 
-    # -------------------------------------------
-    # neural network of given type/configuration
-    # -------------------------------------------
+    # ----------------------------------------------------------
+    # neural-network backbone with specified type/configuration
+    # ----------------------------------------------------------
     args.model_cfg = [int(x) if x not in ['M','D'] else x for x in args.model_cfg]
     nchan = (3 + 2 * args.neighbors) * (1 + args.max_lag)
     if args.model_type == 'inverted-vgg': net = VGG(cfg = args.model_cfg, in_channels = nchan)
@@ -111,25 +112,18 @@ if __name__ == '__main__':
     elif args.model_type == 'siamese-vgg': net = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors)
     elif args.model_type == 'vgg': net = VGG_CNNC(cfg = args.model_cfg, in_channels = nchan)
 
-    # ----------------------------
-    # model (init or pre-trained)   ## start here
-    # ----------------------------
-    if args.train == True:
-        model = Classifier(args, net, valnames, prefix)
-        input('STOP')
-    else:
-        model = Classifier.load_from_checkpoint(args.model, hparams = args,
-                    backbone = net, val_names = valnames, prefix = prefix)
+    # ---------------------------------------------------------
+    # set up classifier from scratch or pre-trained checkpoint
+    # ---------------------------------------------------------
+    if args.train == True: model = Classifier(args, net, valnames, prefix)
+    else: model = Classifier.load_from_checkpoint(args.model, hparams = args, backbone = net, valnames = valnames, prefix = prefix)
 
 
 
-    
 
 
+    ## start here
 
-    # -------
-    # logger
-    # -------
     logger = TensorBoardLogger('lightning_logs', name = args.outdir)
 
     # ----------
@@ -137,13 +131,13 @@ if __name__ == '__main__':
     # ----------
     if args.train == True or args.finetune == True:
         if args.train_split < 1.:
-            ckpt_fname = '{epoch}-{' + prefix + 'avg_auprc:.3f}-{' + prefix + 'avg_auroc:.3f}'
+            ckpt_fn = '{epoch}-{' + prefix + 'avg_auprc:.3f}-{' + prefix + 'avg_auroc:.3f}'
             monitor, mode = f'{prefix}avg_auc', 'max'
         else:
-            monitor, mode, ckpt_fname = 'train_loss', 'min', '{epoch}-{train_loss:.6f}'
+            monitor, mode, ckpt_fn = 'train_loss', 'min', '{epoch}-{train_loss:.6f}'
 
-        callbacks = [ ModelCheckpoint(monitor = monitor, mode = mode, save_top_k = 1,
-                      dirpath = f'lightning_logs/{args.outdir}/', filename = ckpt_fname)]
+        callbacks = [ModelCheckpoint(monitor = monitor, mode = mode, save_top_k = 1,
+                     dirpath = f'lightning_logs/{args.outdir}/', filename = ckpt_fn)]
 
     # -----------
     # pl trainer
