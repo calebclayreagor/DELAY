@@ -3,7 +3,6 @@ import os
 import sys
 import glob
 import pytorch_lightning as pl
-from tqdm import tqdm
 
 from torch.utils.data                          import DataLoader
 from torch.utils.data                          import ConcatDataset
@@ -53,20 +52,20 @@ if __name__ == '__main__':
     parser.add_argument('--gpus', type = int, default = 2, help = '')
     args = parser.parse_args()
 
-    # ------------------
-    # set up run for pl
-    # ------------------
-    pl.seed_everything(1234); callbacks = None
+    # ---------------------------------
+    # set up run for pytorch_lightning
+    # ---------------------------------
+    pl.seed_everything(1234); callback = None
     if args.train == True: prefix = 'val_'
     elif args.test == True: prefix = 'test_'
     elif args.predict == True: prefix = 'pred_'
 
-    # ---------------------------------------------
-    # load/compile mini-batches for given datasets
-    # ---------------------------------------------
+    # ------------------------------------------------
+    # load/compile mini-batches for provided datasets
+    # ------------------------------------------------
     print('Loading datasets...')
     training, validation, valnames = [], [], []
-    for f in tqdm(sorted(glob.glob(f'{args.datadir}*/'))):
+    for f in sorted(glob.glob(f'{args.datadir}*/')):
         if os.path.isdir(f):
 
             # training/validation dsets (training/fine-tuning)
@@ -76,13 +75,13 @@ if __name__ == '__main__':
                 if args.valsplit is not None:
                     val_ds = Dataset(args, f, 'validation')
 
-            # testing/prediction dsets - ONLY (no fine-tuning)
+            # testing/prediction dsets [ONLY] (no fine-tuning)
             elif args.test == True:
                 val_ds = Dataset(args, f, 'validation')
             elif args.predict == True:
                 train_ds = Dataset(args, f, 'prediction')
 
-            # update lists, names for dsets
+            # update dsets lists/names
             if train_ds is not None: 
                 training.append(train_ds)
             if val_ds is not None:
@@ -94,17 +93,17 @@ if __name__ == '__main__':
     # training/validation dataloaders
     # --------------------------------
     if len(training) > 0:
-        training = ConcatDataset(training)
+        training = ConcatDataset(training)  # training dataloader is also used for prediction
         train_loader = DataLoader(training, batch_size = None, shuffle = True, num_workers = args.workers, pin_memory = True)
         
     if len(validation) > 0:
         val_loader = [None] * len(validation)
-        for i in range(len(validation)):
+        for i in range(len(validation)):  # validation dataloader is also used for testing (no fine-tuning)
             val_loader[i] = DataLoader(validation[i], batch_size = None, num_workers = args.workers, pin_memory = True)
 
-    # ----------------------------------------------------------
-    # neural-network backbone with specified type/configuration
-    # ----------------------------------------------------------
+    # --------------------------------------------------------
+    # NN backbone with specified model_type and configuration
+    # --------------------------------------------------------
     args.model_cfg = [int(x) if x not in ['M','D'] else x for x in args.model_cfg]
     nchan = (3 + 2 * args.neighbors) * (1 + args.max_lag)
     if args.model_type == 'inverted-vgg': net = VGG(cfg = args.model_cfg, in_channels = nchan)
@@ -118,67 +117,35 @@ if __name__ == '__main__':
     if args.train == True: model = Classifier(args, net, valnames, prefix)
     else: model = Classifier.load_from_checkpoint(args.model, hparams = args, backbone = net, valnames = valnames, prefix = prefix)
 
-
-
-
-
-    ## start here
-
-    logger = TensorBoardLogger('lightning_logs', name = args.outdir)
-
-    # ----------
-    # callbacks
-    # ----------
+    # --------------------------------------------------
+    # set up callback and trainer for pytorch_lightning
+    # --------------------------------------------------
     if args.train == True or args.finetune == True:
-        if args.train_split < 1.:
-            ckpt_fn = '{epoch}-{' + prefix + 'avg_auprc:.3f}-{' + prefix + 'avg_auroc:.3f}'
-            monitor, mode = f'{prefix}avg_auc', 'max'
-        else:
-            monitor, mode, ckpt_fn = 'train_loss', 'min', '{epoch}-{train_loss:.6f}'
+        if args.valsplit is not None: monitor, mode, fn = f'{prefix}avg_auc', 'max', f"{'{epoch}_{'}{prefix}{'avg_auc:.3f}'}"
+        else: monitor, mode, fn = 'train_loss', 'min', '{epoch}_{train_loss:.3f}'
+        callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'lightning_logs/{args.outdir}/')
 
-        callbacks = [ModelCheckpoint(monitor = monitor, mode = mode, save_top_k = 1,
-                     dirpath = f'lightning_logs/{args.outdir}/', filename = ckpt_fn)]
+    trainer = pl.Trainer(max_epochs = args.max_epochs, deterministic = True, accelerator = 'ddp', gpus = args.gpus, auto_select_gpus = True,
+                         logger = TensorBoardLogger('lightning_logs', name = args.outdir), callbacks = callback, num_sanity_val_steps = 0,
+                         plugins = DDPPlugin(find_unused_parameters = False), check_val_every_n_epoch = args.check_val_every_n_epoch)
 
-    # -----------
-    # pl trainer
-    # -----------
-    trainer = pl.Trainer(max_epochs = args.max_epochs, deterministic = True,
-                         accelerator = 'ddp', gpus = args.gpus, auto_select_gpus = True,
-                         logger = logger, callbacks = callbacks, num_sanity_val_steps = 0,
-                         plugins = [ DDPPlugin(find_unused_parameters=False) ],
-                         check_val_every_n_epoch = args.check_val_every_n_epoch)
-
-    # ------------------
-    # train (from init)
-    # ------------------
+    # -------------------------
+    # train model from scratch
+    # -------------------------
     if args.train == True:
         trainer.fit(model, train_loader, val_loader)
 
-    # ------------------------
-    # test (from pre-trained)
-    # ------------------------
+    # --------------------------------------------------------------
+    # test/predict from pre-trained model with optional fine-tuning
+    # --------------------------------------------------------------
     elif args.test == True:
         trainer.test(model, val_loader)
-
-        # ---------------------------
-        # finetune (with validation)
-        # ---------------------------
-        if args.finetune == True:
+        if args.finetune == True:  # with validation
             trainer.fit(model, train_loader, val_loader)
 
-    # ---------------------------
-    # predict (from pre-trained)
-    # ---------------------------
     elif args.predict == True:
-
-        # --------------------------
-        # finetune (opt validation)
-        # --------------------------
-        if args.finetune == True:
-            if args.train_split == 1.: trainer.fit(model, train_loader)
-            else: trainer.fit(model, train_loader, val_loader)
-
-        # ---------------------------
-        # evaluation (no validation)
-        # ---------------------------
+        if args.finetune == True:  # with optional validation
+            if args.valsplit is not None:
+                trainer.fit(model, train_loader, val_loader)
+            else: trainer.fit(model, train_loader)
         else: trainer.predict(model, train_loader)
