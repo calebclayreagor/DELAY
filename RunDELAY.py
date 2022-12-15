@@ -124,7 +124,7 @@ if __name__ == '__main__':
         else: monitor, mode, fn = 'train_loss', 'min', '{epoch}_{train_loss:.3f}'
         callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'lightning_logs/{args.outdir}/')
 
-    trainer = pl.Trainer(strategy = 'ddp', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, deterministic = True,
+    trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, deterministic = True,
                          max_epochs = args.max_epochs, num_sanity_val_steps = 0, check_val_every_n_epoch = args.valfreq,
                          callbacks = callback, logger = TensorBoardLogger('lightning_logs', name = args.outdir))
 
