@@ -24,7 +24,7 @@ if __name__ == '__main__':
     # ----------------
     parser = argparse.ArgumentParser(prog = 'DELAY', description = 'Depicting pseudotime-lagged causality for accurate gene-regulatory inference')
     parser.add_argument('datadir', help = 'Full path to directory containing one or more single-cell datasets')
-    parser.add_argument('outdir', help = 'Relative directory for the logged results')
+    parser.add_argument('outdir', help = 'Sub-directory of RESULTS for the logged results')
     parser.add_argument('-p', '--predict', action = 'store_true', help = 'Use a pre-trained model to predict interactions')
     parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'Fine-tune a pre-trained model')
     parser.add_argument('-m', '--model', help = 'Full path to pre-trained model')
@@ -122,11 +122,11 @@ if __name__ == '__main__':
     if args.train == True or args.finetune == True:
         if args.valsplit is not None: monitor, mode, fn = f'{prefix}avg_auc', 'max', f"{'{epoch}_{'}{prefix}{'avg_auc:.3f}'}"
         else: monitor, mode, fn = 'train_loss', 'min', '{epoch}_{train_loss:.3f}'
-        callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'lightning_logs/{args.outdir}/')
+        callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'RESULTS/{args.outdir}/')
 
     trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 
                          max_epochs = args.max_epochs, num_sanity_val_steps = 0, check_val_every_n_epoch = args.valfreq,
-                         callbacks = callback, logger = TensorBoardLogger('lightning_logs', name = args.outdir))
+                         callbacks = callback, logger = TensorBoardLogger('RESULTS', name = args.outdir))
 
     # -------------------------
     # train model from scratch

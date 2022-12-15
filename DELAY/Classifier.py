@@ -106,8 +106,8 @@ class Classifier(pl.LightningModule):
         val_auroc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         for idx in range(len(self.valnames)):
             val_auprc[idx], val_auroc[idx] = self.val_auprc[idx].compute(), self.val_auroc[idx].compute()
-            self.log(f'{self.valnames[idx]}_auprc', val_auprc[idx], sync_dist = True, add_dataloader_idx = False)
-            self.log(f'{self.valnames[idx]}_auroc', val_auroc[idx], sync_dist = True, add_dataloader_idx = False)
+            self.log(f'{self.valnames[idx]}auprc', val_auprc[idx], sync_dist = True, add_dataloader_idx = False)
+            self.log(f'{self.valnames[idx]}auroc', val_auroc[idx], sync_dist = True, add_dataloader_idx = False)
             self.val_auprc[idx].reset(); self.val_auroc[idx].reset() # reset metric modules for next epoch
         avg_auprc, avg_auroc = val_auprc.mean(), val_auroc.mean()
         self.log(f'{self.prefix}avg_auprc', avg_auprc, sync_dist = True, add_dataloader_idx = False)
@@ -120,8 +120,8 @@ class Classifier(pl.LightningModule):
         test_auroc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         for idx in range(len(self.valnames)):
             test_auprc[idx], test_auroc[idx] = self.val_auprc[idx].compute(), self.val_auroc[idx].compute()
-            self.log(f'_{self.valnames[idx]}_auprc', test_auprc[idx], sync_dist = True, add_dataloader_idx = False)
-            self.log(f'_{self.valnames[idx]}_auroc', test_auroc[idx], sync_dist = True, add_dataloader_idx = False)
+            self.log(f'_{self.valnames[idx]}auprc', test_auprc[idx], sync_dist = True, add_dataloader_idx = False)
+            self.log(f'_{self.valnames[idx]}auroc', test_auroc[idx], sync_dist = True, add_dataloader_idx = False)
             ## To-do: Find best way to compute/log network density values for normalization of AUPRC values ##
             #self.log(f'_{self.valnames[idx]}_density', tgt.sum()/tgt.size(0), sync_dist = True, add_dataloader_idx = False)
             self.val_auprc[idx].reset(); self.val_auroc[idx].reset()
@@ -147,4 +147,4 @@ class Classifier(pl.LightningModule):
             ii = np.where(g_j[:, 0][:, None] == g1[None, :])[1]
             jj = np.where(g_j[:, 1][:, None] == g2[None, :])[1]
             pred_mat.values[ii, jj] = pred_j
-        pred_mat.to_csv(f'lightning_logs/{self.hparams.outdir}/regPredictions.csv')
+        pred_mat.to_csv(f'RESULTS/{self.hparams.outdir}/regPredictions.csv')
