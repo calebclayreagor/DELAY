@@ -62,8 +62,8 @@ class Classifier(pl.LightningModule):
         X, y, _, _ = val_batch
         out = self.forward(X)
         pred = torch.sigmoid(out)
-        loss = F.binary_cross_entropy_with_logits(out, y, weight = y.sum()/y.size(0), reduction = 'sum')/self.hparams.batch_size
-        self.log(f'{self.prefix}loss', loss, on_step = False, on_epoch = True, sync_dist = True, add_dataloader_idx = False)
+        #loss = F.binary_cross_entropy_with_logits(out, y, weight = y.sum()/y.size(0), reduction = 'sum')/self.hparams.batch_size
+        #self.log(f'{self.prefix}loss', loss, on_step = False, on_epoch = True, batch_size = X.size(0), sync_dist = True, add_dataloader_idx = False)
 
         # update torch.nn modules for AUC metrics
         self.val_auprc[dataset_idx].update(pred, y)
