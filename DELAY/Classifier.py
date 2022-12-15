@@ -13,10 +13,7 @@ from typing import List
 from typing import Tuple
 from typing import TypeVar
 
-from pytorch_lightning.metrics.classification  import PrecisionRecallCurve as PRCurve
-from pytorch_lightning.metrics.functional      import precision_recall_curve as prc
-from pytorch_lightning.metrics.functional      import auc, roc
-
+from torchmetrics import AveragePrecision, AUROC
 from Networks.VGG_CNNC import VGG_CNNC
 from Networks.SiameseVGG import SiameseVGG
 from Networks.vgg import VGG
@@ -37,8 +34,9 @@ class Classifier(pl.LightningModule):
         self.valnames = valnames
         self.prefix = prefix
 
-        # store predictions/targets in pytortch_lightning precision-recall curves
-        self.val_prc = nn.ModuleList([PRCurve(pos_label = 1) for _ in self.valnames])
+        # set up separate torch.nn ModuleLists to update/compute AUC values for PR/ROC metrics
+        self.val_auprc = nn.ModuleList([AveragePrecision(task = 'binary') for _ in self.valnames])
+        self.val_auroc = nn.ModuleList([AUROC(task = 'binary') for _ in self.valnames])
 
     def configure_optimizers(self: Self) -> torch.optim.SGD:
         return torch.optim.SGD(self.parameters(), lr = self.hparams.learning_rate)
@@ -67,8 +65,9 @@ class Classifier(pl.LightningModule):
         loss = F.binary_cross_entropy_with_logits(out, y, weight = y.sum()/y.size(0), reduction = 'sum')/self.hparams.batch_size
         self.log(f'{self.prefix}loss', loss, on_step = False, on_epoch = True, sync_dist = True, add_dataloader_idx = False)
 
-        # update precision-recall curve
-        self.val_prc[dataset_idx](pred, y)
+        # update torch.nn modules for AUC metrics
+        self.val_auprc[dataset_idx].update(pred, y)
+        self.val_auroc[dataset_idx].update(pred, y)
 
     def test_step(self: Self,
                   test_batch: Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]],
@@ -79,11 +78,12 @@ class Classifier(pl.LightningModule):
         out = self.forward(X)
         pred = torch.sigmoid(out)
 
-        # update precision-recall curve for unmasked gpairs (optional)
+        # update modules for AUC metrics across unmasked gpairs (optional)
         if msk.sum() > 0:
             pred_msk = torch.masked_select(pred, msk > 0)
             y_msk = torch.masked_select(y, msk > 0)
-            self.val_prc[dataset_idx](pred_msk, y_msk)
+            self.val_auprc[dataset_idx].update(pred_msk, y_msk)
+            self.val_auroc[dataset_idx].update(pred_msk, y_msk)
 
         # save predictions for mini-batch as .npy file
         fn_out = f'{fn[0]}pred_k={self.hparams.valsplit}_{fn[1]}'
@@ -103,37 +103,30 @@ class Classifier(pl.LightningModule):
         np.save(fn_out, pred.cpu().detach().numpy().astype(np.float32), allow_pickle = True)
 
     def on_validation_epoch_end(self: Self) -> None:
-        """Compute dataset and average AUC values for PR/ROC from stored predictions/targets (averaged across GPUs)"""
+        """Compute dataset and average AUC values from updated torch.nn ModuleLists for PR/ROC metrics"""
         val_auprc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         val_auroc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         for idx in range(len(self.valnames)):
-            pred = torch.cat(self.val_prc[idx].preds, dim = 0)
-            tgt = torch.cat(self.val_prc[idx].target, dim = 0)
-            prec, recall, _ = prc(pred, tgt, pos_label = 1)
-            fpr, tpr, _ = roc(pred, tgt, pos_label = 1)
-            val_auprc[idx], val_auroc[idx] = auc(recall, prec), auc(fpr, tpr)
+            val_auprc[idx], val_auroc[idx] = self.val_auprc[idx].compute(), self.val_auroc[idx].compute()
             self.log(f'{self.valnames[idx]}_auprc', val_auprc[idx], sync_dist = True, add_dataloader_idx = False)
             self.log(f'{self.valnames[idx]}_auroc', val_auroc[idx], sync_dist = True, add_dataloader_idx = False)
-            self.val_prc[idx].reset() # reset predictions/targets for next epoch
+            self.val_auprc[idx].reset(); self.val_auroc[idx].reset() # reset metric modules for next epoch
         avg_auprc, avg_auroc = val_auprc.mean(), val_auroc.mean()
         self.log(f'{self.prefix}avg_auprc', avg_auprc, sync_dist = True, add_dataloader_idx = False)
         self.log(f'{self.prefix}avg_auroc', avg_auroc, sync_dist = True, add_dataloader_idx = False)
         self.log(f'{self.prefix}avg_auc', (avg_auprc + avg_auroc)/2, sync_dist = True, add_dataloader_idx = False)
 
     def on_test_epoch_end(self: Self) -> None:
-        """Compute dataset and average AUC values for PR/ROC from stored predictions/targets (averaged across GPUs)"""
+        """Compute dataset and average AUC values from updated torch.nn ModuleLists for PR/ROC metrics"""
         test_auprc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         test_auroc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         for idx in range(len(self.valnames)):
-            pred = torch.cat(self.val_prc[idx].preds, dim = 0)
-            tgt = torch.cat(self.val_prc[idx].target, dim = 0)
-            prec, recall, _ = prc(pred, tgt, pos_label = 1)
-            fpr, tpr, _ = roc(pred, tgt, pos_label = 1)
-            test_auprc[idx], test_auroc[idx] = auc(recall, prec), auc(fpr, tpr)
+            test_auprc[idx], test_auroc[idx] = self.val_auprc[idx].compute(), self.val_auroc[idx].compute()
             self.log(f'_{self.valnames[idx]}_auprc', test_auprc[idx], sync_dist = True, add_dataloader_idx = False)
             self.log(f'_{self.valnames[idx]}_auroc', test_auroc[idx], sync_dist = True, add_dataloader_idx = False)
-            self.log(f'_{self.valnames[idx]}_density', tgt.sum()/tgt.size(0), sync_dist = True, add_dataloader_idx = False)
-            self.val_prc[idx].reset() # reset predictions/targets
+            ## To-do: Find best way to compute/log network density values for normalization of AUPRC values ##
+            #self.log(f'_{self.valnames[idx]}_density', tgt.sum()/tgt.size(0), sync_dist = True, add_dataloader_idx = False)
+            self.val_auprc[idx].reset(); self.val_auroc[idx].reset()
         avg_auprc, avg_auroc = test_auprc.mean(), test_auroc.mean()
         self.log(f'_{self.prefix}avg_auprc', avg_auprc, sync_dist = True, add_dataloader_idx = False)
         self.log(f'_{self.prefix}avg_auroc', avg_auroc, sync_dist = True, add_dataloader_idx = False)

@@ -8,7 +8,6 @@ from torch.utils.data                          import DataLoader
 from torch.utils.data                          import ConcatDataset
 from pytorch_lightning.loggers                 import TensorBoardLogger
 from pytorch_lightning.callbacks               import ModelCheckpoint
-from pytorch_lightning.plugins                 import DDPPlugin
 
 from DELAY.Dataset import Dataset
 from DELAY.Classifier import Classifier
@@ -21,7 +20,7 @@ sys.path.append('Networks/')
 if __name__ == '__main__':
 
     # ----------------
-    # argument parser    TO-DO: ARGUMENT DESCRIPTIONS
+    # argument parser             ### TO-DO: WRITE ARGUMENT DESCRIPTIONS ###
     # ----------------
     parser = argparse.ArgumentParser(prog = 'DELAY', description = 'Depicting pseudotime-lagged causality for accurate gene-regulatory inference')
     parser.add_argument('datadir', help = 'Full path to directory containing one or more single-cell datasets')
@@ -47,9 +46,9 @@ if __name__ == '__main__':
     parser.add_argument('--dropout_traj', type = float, dest = 'dropout', help = '')
     parser.add_argument('--auc_motif', dest = 'motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'], help = '')
     parser.add_argument('--ablate_genes', dest = 'ablate', action = 'store_true', help = '')
-    parser.add_argument('--check_val_every_n_epoch', type = int, default = 1, help = '')
+    parser.add_argument('-ve', '--valfreq', type = int, default = 1, help = '')
     parser.add_argument('--workers', type = int, default = 36, help = '')
-    parser.add_argument('--gpus', type = int, default = 2, help = '')
+    parser.add_argument('--gpus', type = int, default = -1, help = '')
     args = parser.parse_args()
 
     # ---------------------------------
@@ -125,9 +124,9 @@ if __name__ == '__main__':
         else: monitor, mode, fn = 'train_loss', 'min', '{epoch}_{train_loss:.3f}'
         callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'lightning_logs/{args.outdir}/')
 
-    trainer = pl.Trainer(max_epochs = args.max_epochs, deterministic = True, accelerator = 'ddp', gpus = args.gpus, auto_select_gpus = True,
-                         logger = TensorBoardLogger('lightning_logs', name = args.outdir), callbacks = callback, num_sanity_val_steps = 0,
-                         plugins = DDPPlugin(find_unused_parameters = False), check_val_every_n_epoch = args.check_val_every_n_epoch)
+    trainer = pl.Trainer(strategy = 'ddp', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, deterministic = True,
+                         max_epochs = args.max_epochs, num_sanity_val_steps = 0, check_val_every_n_epoch = args.valfreq,
+                         callbacks = callback, logger = TensorBoardLogger('lightning_logs', name = args.outdir))
 
     # -------------------------
     # train model from scratch
