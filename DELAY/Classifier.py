@@ -49,10 +49,9 @@ class Classifier(pl.LightningModule):
                       batch_idx: int
                       ) -> torch.Tensor:
         X, y, _, _ = train_batch
-        input(X.size())
         out = self.forward(X)
         loss = F.binary_cross_entropy_with_logits(out, y, weight = y.sum()/y.size(0), reduction = 'sum')/self.hparams.batch_size
-        self.log('train_loss', loss, on_step = True, on_epoch = True, sync_dist = True, add_dataloader_idx = False)
+        self.log('train_loss', loss, on_step = True, on_epoch = True, batch_size = X.size(0), sync_dist = True, add_dataloader_idx = False)
         return loss
 
     def validation_step(self: Self,
@@ -64,7 +63,7 @@ class Classifier(pl.LightningModule):
         out = self.forward(X)
         pred = torch.sigmoid(out)
         loss = F.binary_cross_entropy_with_logits(out, y, weight = y.sum()/y.size(0), reduction = 'sum')/self.hparams.batch_size
-        self.log(f'{self.prefix}loss', loss, on_step = False, on_epoch = True, sync_dist = True, add_dataloader_idx = False)
+        self.log(f'{self.prefix}loss', loss, on_step = False, on_epoch = True, batch_size = X.size(0), sync_dist = True, add_dataloader_idx = False)
 
         # update torch.nn modules for AUC metrics
         self.val_auprc[dataset_idx].update(pred, y)
