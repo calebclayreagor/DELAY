@@ -120,8 +120,8 @@ if __name__ == '__main__':
     # set up callback and trainer for pytorch_lightning
     # --------------------------------------------------
     if args.train == True or args.finetune == True:
-        if args.valsplit is not None: monitor, mode, fn = f'{prefix}avg_auc', 'max', f"{'{epoch}_{'}{prefix}{'avg_auc:.3f}'}"
-        else: monitor, mode, fn = 'train_loss', 'min', '{epoch}_{train_loss:.3f}'
+        if args.valsplit is not None: monitor, mode, fn = f'{prefix}avg_auc', 'max', f"{'{'}{prefix}{'avg_auc:.3f}_{epoch}'}"
+        else: monitor, mode, fn = 'train_loss', 'min', '{train_loss:.3f}_{epoch}'
         callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'RESULTS/{args.outdir}/')
 
     trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 
