@@ -49,6 +49,7 @@ class Classifier(pl.LightningModule):
                       batch_idx: int
                       ) -> torch.Tensor:
         X, y, _, _ = train_batch
+        input(X.size())
         out = self.forward(X)
         loss = F.binary_cross_entropy_with_logits(out, y, weight = y.sum()/y.size(0), reduction = 'sum')/self.hparams.batch_size
         self.log('train_loss', loss, on_step = True, on_epoch = True, sync_dist = True, add_dataloader_idx = False)
