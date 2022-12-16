@@ -39,7 +39,7 @@ class Classifier(pl.LightningModule):
         self.val_auroc = nn.ModuleList([AUROC(task = 'binary') for _ in self.valnames])
 
     def configure_optimizers(self: Self) -> torch.optim.SGD:
-        return torch.optim.SGD(self.parameters(), lr = self.hparams.learning_rate)
+        return torch.optim.SGD(self.parameters(), lr = self.hparams.learning_rate, weight_decay = self.hparams.weight_decay)
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         return self.backbone(x)

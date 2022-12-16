@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('-nb', '--neighbors', type = int, default = 2, help = '')
     parser.add_argument('-lg', '--max_lag', type = int, default = 5, help = '')
     parser.add_argument('-lr', '--learning_rate', type = float, default = .5, help = '')
+    parser.add_argument('-lm', '--weight_decay', type = float, default = 0., help = '')
     parser.add_argument('-e', '--max_epochs', type = int, default = 100, help = '')
     parser.add_argument('--train', action = 'store_true', help = 'Train a new model from scratch')
     parser.add_argument('--test', action = 'store_true', help = 'Test a pre-trained model')
