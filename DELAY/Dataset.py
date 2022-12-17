@@ -42,9 +42,9 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.X_fn)
 
     def __getitem__(self: Self, idx: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]]:
-        X = np.load(self.X_fn[idx])
-        y = np.load(self.y_fn[idx])
-        msk = np.load(self.msk_fn[idx])
+        X = np.load(self.X_fn[idx], allow_pickle = False)
+        y = np.load(self.y_fn[idx], allow_pickle = False)
+        msk = np.load(self.msk_fn[idx], allow_pickle = False)
         return X, y, msk, self.X_fn[idx].split('X_')
 
     def shuffle_pseudotime(self: Self, pt: np.ndarray) -> np.ndarray:
@@ -236,10 +236,10 @@ class Dataset(torch.utils.data.Dataset):
                 X_batch_j[:, :, (self.args.nbins//2):, (self.args.nbins//2):] = 0.
 
             # save X, y, msk, and g as numpy files
-            np.save(X_fn_j, X_batch_j.astype(np.float32))
-            np.save(y_fn_j, y_batch_j.astype(np.float32))
-            np.save(msk_fn_j, msk_batch_j.astype(np.float32))
-            np.save(g_fn_j, g_batch_j.reshape(-1, 1))
+            np.save(X_fn_j, X_batch_j.astype(np.float32), allow_pickle = False)
+            np.save(y_fn_j, y_batch_j.astype(np.float32), allow_pickle = False)
+            np.save(msk_fn_j, msk_batch_j.astype(np.float32), allow_pickle = False)
+            np.save(g_fn_j, g_batch_j.reshape(-1, 1), allow_pickle = False)
 
             # save filenames
             self.X_fn[j] = X_fn_j
