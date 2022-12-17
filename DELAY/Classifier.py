@@ -84,7 +84,7 @@ class Classifier(pl.LightningModule):
 
         # save predictions for mini-batch as .npy file
         fn_out = f'{fn[0]}pred_k={self.hparams.valsplit}_{fn[1]}'
-        np.save(fn_out, pred.cpu().detach().numpy().astype(np.float32), allow_pickle = False)
+        np.save(fn_out, pred.cpu().detach().numpy().astype(np.float32))
 
     def predict_step(self: Self,
                      pred_batch: Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]],
@@ -97,7 +97,7 @@ class Classifier(pl.LightningModule):
 
         # save predictions for mini-batch as .npy file
         fn_out = f'{fn[0]}pred_{fn[1]}'
-        np.save(fn_out, pred.cpu().detach().numpy().astype(np.float32), allow_pickle = False)
+        np.save(fn_out, pred.cpu().detach().numpy().astype(np.float32))
 
     def on_validation_epoch_end(self: Self) -> None:
         """Compute dataset and average AUC values from updated torch.nn ModuleLists for PR/ROC metrics"""
@@ -140,8 +140,8 @@ class Classifier(pl.LightningModule):
         pred_fn = list(map(str, sorted(Path(ds_dir).glob(f'prediction/pred_*.npy'))))
         g_fn = list(map(str, sorted(Path(ds_dir).glob(f'prediction/g_*.npy'))))
         for j in range(len(pred_fn)):
-            pred_j = np.load(pred_fn[j], allow_pickle = False).reshape(-1)
-            g_j = np.load(g_fn[j], allow_pickle = False).reshape(-1)
+            pred_j = np.load(pred_fn[j]).reshape(-1)
+            g_j = np.load(g_fn[j]).reshape(-1)
             g_j = np.stack(np.char.split(g_j, ' '), axis = 0)
             ii = np.where(g_j[:, 0][:, None] == g1[None, :])[1]
             jj = np.where(g_j[:, 1][:, None] == g2[None, :])[1]
