@@ -47,7 +47,7 @@ if __name__ == '__main__':
     parser.add_argument('--auc_motif', dest = 'motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'], help = '')
     parser.add_argument('--ablate_genes', dest = 'ablate', action = 'store_true', help = '')
     parser.add_argument('-ve', '--valfreq', type = int, default = 1, help = '')
-    parser.add_argument('--workers', type = int, default = 36, help = '')
+    parser.add_argument('--workers', type = int, default = 2, help = '')
     parser.add_argument('--gpus', type = int, default = -1, help = '')
     args = parser.parse_args()
 
@@ -120,8 +120,8 @@ if __name__ == '__main__':
     # set up callback and trainer for pytorch_lightning
     # --------------------------------------------------
     if args.train == True or args.finetune == True:
-        if args.valsplit is not None: monitor, mode, fn = f'{prefix}avg_auc', 'max', f"{'TOP_MODEL_{'}{prefix}{'avg_auc:.3f}_{epoch}'}"
-        else: monitor, mode, fn = 'train_loss', 'min', 'TOP_MODEL_{train_loss:.3f}_{epoch}'
+        if args.valsplit is not None: monitor, mode, fn = f'{prefix}avg_auc', 'max', f"{'BEST_WEIGHTS_{'}{prefix}{'avg_auc:.3f}_{epoch}'}"
+        else: monitor, mode, fn = 'train_loss', 'min', 'BEST_WEIGHTS_{train_loss:.3f}_{epoch}'
         callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'RESULTS/{args.outdir}/')
 
     trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 

@@ -3,7 +3,6 @@ import torch
 import os
 import random
 import itertools
-import pickle
 import numpy as np
 import pandas as pd
 from typing import Tuple
@@ -43,9 +42,9 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.X_fn)
 
     def __getitem__(self: Self, idx: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]]:
-        X = np.load(self.X_fn[idx], allow_pickle = True)
-        y = np.load(self.y_fn[idx], allow_pickle = True)
-        msk = np.load(self.msk_fn[idx], allow_pickle = True)
+        X = np.load(self.X_fn[idx])
+        y = np.load(self.y_fn[idx])
+        msk = np.load(self.msk_fn[idx])
         return X, y, msk, self.X_fn[idx].split('X_')
 
     def shuffle_pseudotime(self: Self, pt: np.ndarray) -> np.ndarray:
@@ -236,11 +235,11 @@ class Dataset(torch.utils.data.Dataset):
             if self.args.mask_region in ['on-on', 'on']: 
                 X_batch_j[:, :, (self.args.nbins//2):, (self.args.nbins//2):] = 0.
 
-            # save X, y, msk, and g as pickled numpy files
-            np.save(X_fn_j, X_batch_j.astype(np.float32), allow_pickle = True)
-            np.save(y_fn_j, y_batch_j.astype(np.float32), allow_pickle = True)
-            np.save(msk_fn_j, msk_batch_j.astype(np.float32), allow_pickle = True)
-            np.save(g_fn_j, g_batch_j.reshape(-1, 1), allow_pickle = True)
+            # save X, y, msk, and g as numpy files
+            np.save(X_fn_j, X_batch_j.astype(np.float32))
+            np.save(y_fn_j, y_batch_j.astype(np.float32))
+            np.save(msk_fn_j, msk_batch_j.astype(np.float32))
+            np.save(g_fn_j, g_batch_j.reshape(-1, 1))
 
             # save filenames
             self.X_fn[j] = X_fn_j
