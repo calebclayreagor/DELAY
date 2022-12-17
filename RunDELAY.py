@@ -47,8 +47,8 @@ if __name__ == '__main__':
     parser.add_argument('--auc_motif', dest = 'motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'], help = '')
     parser.add_argument('--ablate_genes', dest = 'ablate', action = 'store_true', help = '')
     parser.add_argument('-ve', '--valfreq', type = int, default = 1, help = '')
-    parser.add_argument('--workers', type = int, default = 2, help = '')
-    parser.add_argument('--gpus', type = int, default = -1, help = '')
+    parser.add_argument('-w', '--workers', type = int, default = 2, help = '')
+    parser.add_argument('-g', '--gpus', type = int, default = -1, help = '')
     args = parser.parse_args()
 
     # ---------------------------------
