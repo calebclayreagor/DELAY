@@ -126,7 +126,7 @@ if __name__ == '__main__':
 
     trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 
                          max_epochs = args.max_epochs, num_sanity_val_steps = 0, check_val_every_n_epoch = args.valfreq,
-                         callbacks = callback, logger = TensorBoardLogger('RESULTS', name = args.outdir))
+                         deterministic = 'warn', callbacks = callback, logger = TensorBoardLogger('RESULTS', name = args.outdir))
 
     # -------------------------
     # train model from scratch
