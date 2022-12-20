@@ -18,14 +18,14 @@
 
 ### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq:
 
-``python RunDELAY.py [datadir] [outdir] -p -ft -m \Checkpoints\trainedModel-1.ckpt -k [val_fold] -e 1000``
+``python RunDELAY.py [datadir] [outdir] -p -m \Checkpoints\trainedModel-1.ckpt -ft -k [val_fold] -e 1000``
 
-- Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the ``\DELAY`` directory
-- By default, DELAY will save the best model weights as a checkpoint file in ``/DELAY/RESULTS/outdir``
+- Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory ``\DELAY``
+- By default, DELAY will save the best model weights in a checkpoint file in ``/DELAY/RESULTS/outdir``
 
-### 2. Predict gene-regulation probabilities across TF-target gene pairs in datasets using fine-tuned models:
+### 2. Predict gene-regulation probabilities across all TF-target pairs using fine-tuned model:
 
-### ``python RunDELAY.py [datadir] [outdir] -m [ckptfile] -p``
+``python RunDELAY.py [datadir] [outdir] -p -m /DELAY/RESULTS/outdir/finetunedModel.ckpt``
 
 - DELAY will save the predicted probabilities as a ``tfs x genes`` matrix in ``outdir/regPredictions.csv``
 
