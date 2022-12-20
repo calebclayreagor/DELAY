@@ -2,40 +2,30 @@
 
 ![DELAY](DELAY.png)
 
-## Quick Setup
+# Quick Setup
 
-1. Follow these instructions to install the latest version of PyTorch with CUDA support: https://pytorch.org
+### 1. Follow these instructions to install the latest version of PyTorch with CUDA support: https://pytorch.org
 
-  - Please note, DELAY currently requires CUDA-capable GPUs for model training and prediction
+- Please note, DELAY currently requires CUDA-capable GPUs for model training and prediction
 
-2. Confirm that additional dependencies for ``pytorch-lightning`` and ``pandas`` have been satisfied
+### 2. Confirm that additional dependencies for ``pytorch-lightning`` and ``pandas`` have been satisfied
 
-3. Navigate to the location where you want to clone the repository and run:
+### 3. Navigate to the location where you want to clone the repository and run:
 
-```
-$ git clone https://github.com/calebclayreagor/DELAY.git
-```
+### ``$ git clone https://github.com/calebclayreagor/DELAY.git``
 
-4. Use TensorBoard to monitor training from ``\DELAY`` by runnning: ``tensorboard --logdir RESULTS``
+# Two Steps to Infer Gene-Regulatory Networks
 
-## How To Use
+### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq:
 
-### Fine-tune DELAY on dataset(s) with partially-known ground-truth interactions (e.g. from ChIP-seq)
+``python RunDELAY.py [datadir] [outdir] -p -ft -m \Checkpoints\trainedModel-1.ckpt -k [val_fold] -e 1000``
 
-```
-python RunDELAY.py [datadir] [outdir] -m [ckptfile] -p -ft -k [valfold]
-```
+- Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the ``\DELAY`` directory
+- By default, DELAY will save the best model weights as a checkpoint file in ``/DELAY/RESULTS/outdir``
 
-- DELAY optimizes the class weighted sum-of-losses (BCE Loss) per mini-batch, scaled by ``batch_size``
-- For best results, use the largest stable ``lr_init`` and set ``max_epochs>=10^3`` (see experiment logs)
-- If fine-tuning DELAY on scATAC-seq data, validate training using ``train_split=.7`` and set ``lr_init<=.5``
-- By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
+### 2. Predict gene-regulation probabilities across TF-target gene pairs in datasets using fine-tuned models:
 
-### Predict gene-regulation probabilities across TF-target gene pairs in dataset(s) using fine-tuned models
-
-```
-python RunDELAY.py [datadir] [outdir] -m [ckptfile] -p
-```
+### ``python RunDELAY.py [datadir] [outdir] -m [ckptfile] -p``
 
 - DELAY will save the predicted probabilities as a ``tfs x genes`` matrix in ``outdir/regPredictions.csv``
 
