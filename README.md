@@ -29,7 +29,7 @@
 
 - DELAY will save the predicted probabilities as a ``tfs x genes`` matrix in ``outdir/regPredictions.csv``
 
-## Input Files
+# Input Files
 
 One or more datasets can be specified as sub-directories in ``datadir`` containing the following input files:
 
@@ -69,4 +69,4 @@ Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo
 
 Experiment logs from the study are available here: https://tensorboard.dev/experiment/RBVBetLMRDiEvO7sBl452A
 
-## Read the preprint: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
+### Read the preprint: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
