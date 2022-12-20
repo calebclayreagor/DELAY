@@ -24,7 +24,7 @@ $ git clone https://github.com/calebclayreagor/DELAY.git
 python RunDELAY.py [datadir] [outdir] -p -m [/.../trainedModel-1.ckpt] -ft -k [val_fold] -e 1000
 ```
 
-- Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main DELAY directory
+- Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory
 - By default, DELAY will save the best model weights to a checkpoint file in ``outdir``
 
 ### 2. Predict gene regulation across all TF-target gene pairs using the fine-tuned model:
