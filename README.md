@@ -4,15 +4,25 @@
 
 ## Quick Setup
 
-Navigate to the location where you want to clone the repository and run:
+1. Follow these instructions to install the latest version of PyTorch with CUDA support: https://pytorch.org
+
+- Please note, DELAY currently requires CUDA-capable GPUs for model training and prediction
+
+2. Confirm that additional dependencies for ``pytorch-lightning`` and ``pandas`` have been satisfied
+
+3. Navigate to the location where you want to clone the DELAY repository and run:
 
 ```
 $ git clone https://github.com/calebclayreagor/DELAY.git
 ```
 
-- Check the requirements file to confirm that all dependencies are satisfied
+### After installation
 
-- Please note, DELAY is currently configured for GPU training and prediction with `pytorch-cuda`
+4. Monitor training with TensorBoard by navigating to DELAY and runnning:
+
+```
+tensorboard --logdir RESULTS
+```
 
 ### Downloads
 
@@ -71,6 +81,7 @@ One or more datasets can be specified as sub-directories in ``datadir`` containi
 python RunDELAY.py [datadir] [outdir] --model_type vgg -cfg 32 32 M 64 64 M 128 128 M --train -k [valfold]
 ```
 
-### Help
+## Help
 
-## Read the preprint at bioRxiv: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
+
+## Read the preprint: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
