@@ -57,15 +57,12 @@ class SiameseVGG(nn.Module):
 
     def make_layers(self: Self,
                     cfg: List[Union[int, str]], 
-                    in_channels: int = 1, 
-                    dropout: float = 0.25
+                    in_channels: int = 1,
                     ) -> nn.Sequential:
         layers: List[nn.Module] = []
         for v in cfg:
             if v == 'M':
                 layers.append(nn.MaxPool2d(kernel_size = 2))
-            elif v == 'D':
-                layers.append(nn.Dropout(p = dropout))
             else:
                 layers.append(nn.Conv2d(in_channels, v, kernel_size = 3, padding = 1))
                 layers.append(nn.ReLU())
