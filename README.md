@@ -6,11 +6,11 @@
 
 1. Follow these instructions to install the latest version of PyTorch with CUDA support: https://pytorch.org
 
-- Please note, DELAY currently requires CUDA-capable GPUs for model training and prediction
+  - Please note, DELAY currently requires CUDA-capable GPUs for model training and prediction
 
-2. Confirm that additional dependencies for ``pytorch-lightning`` and ``pandas`` have been satisfied
+2. Confirm that the additional dependencies for ``pytorch-lightning`` and ``pandas`` have been satisfied
 
-3. Navigate to the location where you want to clone the DELAY repository and run:
+3. Navigate to the location where you want to clone the repository for DELAY and run:
 
 ```
 $ git clone https://github.com/calebclayreagor/DELAY.git
@@ -18,7 +18,7 @@ $ git clone https://github.com/calebclayreagor/DELAY.git
 
 ### After installation
 
-4. Monitor training with TensorBoard by navigating to DELAY and runnning:
+4. Use TensorBoard to monitor training by navigating to DELAY and runnning:
 
 ```
 tensorboard --logdir RESULTS
