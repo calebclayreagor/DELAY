@@ -22,35 +22,34 @@ if __name__ == '__main__':
     # ----------------
     # argument parser
     # ----------------
-    parser = argparse.ArgumentParser(prog = 'DELAY', description = 'Depicting pseudotime-lagged causality for accurate gene-regulatory inference')
-    parser.add_argument('datadir', help = 'Full path to directory containing one or more single-cell datasets for model training, testing, or prediction')
-    parser.add_argument('outdir', help = 'Relative path for logged results, hyperparameters and checkpoint files containing the best model weights')
-    parser.add_argument('-p', '--predict', action = 'store_true', help = 'Predict gene-regulation probabilities for TF-target gene pairs using a pre-trained model')
-    parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'Fine-tune a pre-trained model on partially-known ground-truth interactions')
-    parser.add_argument('-m', '--model', help = 'Full path to saved checkpoint file containing best weights for a pre-trained model')
-    parser.add_argument('-k', '--valsplit', type = int, help = 'Optional label of data fold/split to hold out for model validation')
-    parser.add_argument('-bs', '--batch_size', type = int, default = 512, help = 'Number of TF-target gene-pair examples per mini-batch')
-    parser.add_argument('-d', '--dimensions', type = int, dest = 'nbins', default = 32, help = 'Number of gene-expression levels used in data binnning to generate joint-probability matrices')
-    parser.add_argument('-nb', '--neighbors', type = int, default = 2, help = 'Number of highly-correlated neighbor genes to include as input with each TF-target gene-pair example')
-    parser.add_argument('-lg', '--max_lag', type = int, default = 5, help = 'Number of pseudotime-lagged input matrices to include with each TF-target gene-pair example')
-    parser.add_argument('-lr', '--learning_rate', type = float, default = .5, help = 'Learning rate to use for model training or fine-tuning')
-    parser.add_argument('-e', '--max_epochs', type = int, default = 100, help = 'Number of epochs to use for model training or fine-tuning')
-    parser.add_argument('-ve', '--valfreq', type = int, default = 1, help = 'Option to skip validation for the specified number of epochs')
-    parser.add_argument('-w', '--workers', type = int, default = 2, help = 'Number of workers (sub-processes) to use for loading mini-batches')
-    parser.add_argument('-g', '--gpus', type = int, default = -1, help = 'Number of automatically-selected GPUs to use for distributed training')
-    parser.add_argument('--train', action = 'store_true', help = 'Train a new model from scratch')
-    parser.add_argument('--test', action = 'store_true', help = 'Test a pre-trained model, often using augmented datasets or input matrices')
-    parser.add_argument('-cfg', '--model_cfg', nargs = '*', default = ['1024', 'M', '512', 'M', '256', 'M', '128', 'M', '64'], help = ('Configuration of feature extractor(s) for the network,', 
-                        'including max-pooling and convolutional layers with specified numbers of activation maps'))
-    parser.add_argument('--model_type', choices = ['inverted-vgg', 'vgg-cnnc', 'siamese-vgg', 'vgg'], default = 'inverted-vgg', help = 'Choice of overall network architecture for the model')
-    parser.add_argument('--mask_lags', type = int, nargs = '*',  default = [], help = 'Option to mask the input matrices at the specified pseudotime lags')
-    parser.add_argument('--mask_region', choices = ['off-off', 'on-off', 'off-on', 'on-on', 'on'], help = 'Option to mask the specified region(s) of the input matrices')
-    parser.add_argument('--shuffle_traj', type = float, dest = 'shuffle', help = 'Option to shuffle cells along trajectories at given length scales (fraction of trajectory from 0 to 1)')
-    parser.add_argument('--ncells_traj', type = int, dest = 'ncells', help = 'Option to randomly sample the specified number of cells from each trajectory')
-    parser.add_argument('--dropout_traj', type = float, dest = 'dropout', help = 'Option to include additional sequencing dropouts at the specified rate (fraction from 0 to 1)')
-    parser.add_argument('--auc_motif', dest = 'motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'],
-                        help = 'Option to compute AUC values for only the gene pairs in a specified regulatory motif')
-    parser.add_argument('--ablate_genes', dest = 'ablate', action = 'store_true', help = 'Option to mask neighbor genes participating in the specified regulatory motif')
+    parser = argparse.ArgumentParser(prog = 'DELAY', description = 'DELAY: DEpicting pseudotime-LAgged causalitY across single-cell trajectories for accurate gene-regulatory inference')
+    parser.add_argument('datadir', help = 'full path to directory with >=1 sub-directory with required input files')
+    parser.add_argument('outdir', help = 'relative path for logged results/hyperparameters and saved model checkpoints')
+    parser.add_argument('-p', '--predict', action = 'store_true', help = 'predict gene-regulation probabilities using pre-trained model')
+    parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'fine-tune model with partially-known ground truths (e.g. from ChIP-seq)')
+    parser.add_argument('-m', '--model', metavar = 'CKPT_FILE', help = 'full path to saved checkpoint file with pre-trained model weights')
+    parser.add_argument('-k', '--val_split', metavar = 'K', dest = 'valsplit', type = int, help = 'data fold/split to hold out for validation (optional)')
+    parser.add_argument('-bs', '--batch_size', metavar = 'BS', type = int, default = 512, help = 'number of TF-target examples per mini-batch')
+    parser.add_argument('-d', '--dimensions', metavar = 'D', dest = 'nbins', type = int, default = 32, help = 'number of gene-expression levels used to bin data for input matrices')
+    parser.add_argument('-nb', '--neighbors', metavar = 'NB', type = int, default = 2, help = 'number of neighbors used for gene pairs in input')
+    parser.add_argument('-lg', '--max_lag', metavar = 'LG', type = int, default = 5, help = 'number of lagged matrices to include in input')
+    parser.add_argument('-lr', '--learning_rate', metavar = 'LR', type = float, default = .5)
+    parser.add_argument('-e', '--training_epochs', metavar = 'E', type = int, default = 100)
+    parser.add_argument('-ve', '--val_freq', metavar = 'VE', dest = 'valfreq', type = int, default = 1)
+    parser.add_argument('-w', '--workers', metavar = 'W', type = int, default = 2, help = 'number of sub-processes for mini-batch loading')
+    parser.add_argument('-g', '--gpus', metavar = 'G', type = int, default = -1, help = 'number of GPUs for distributed training')
+    parser.add_argument('--train', action = 'store_true', help = 'train new model from scratch')
+    parser.add_argument('--test', action = 'store_true', help = 'test pre-trained model on augmented data/inputs')
+    parser.add_argument('-cfg', '--model_config', metavar = 'LAYER', dest = 'model_cfg', nargs = '*', default = ['1024', 'M', '512', 'M', '256', 'M', '128', 'M', '64'], 
+        help = 'configure convolutional and max-pooling layers for feature extractor (e.g. 32 32 M 64 64 M ...)')
+    parser.add_argument('--model_type', choices = ['inverted-vgg', 'vgg-cnnc', 'siamese-vgg', 'vgg'], default = 'inverted-vgg')
+    parser.add_argument('--mask_lags', metavar =  'LG', type = int, nargs = '*',  default = [], help = 'mask inputs at specified lags')
+    parser.add_argument('--mask_region', choices = ['off-off', 'on-off', 'off-on', 'on-on', 'on'], help = 'mask regions of input matrices')
+    parser.add_argument('--shuffle_trajectory', metavar = 'FRAC', dest = 'shuffle', type = float, help = 'shuffle cells in local windows across trajectory')
+    parser.add_argument('--ncells_trajectory', metavar = 'N', dest = 'ncells', type = int, help = 'randomly sample cells from trajectory')
+    parser.add_argument('--dropout_trajectory', metavar = 'P', dest = 'dropout', type = float, help = 'include additional sequencing dropouts with specified probability')
+    parser.add_argument('--auc_motif', dest = 'motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'], help = 'compute AUC for examples in specified motif')
+    parser.add_argument('--ablate_genes', dest = 'ablate', action = 'store_true', help = 'mask input matrices for neighbors in specified motif')
     args = parser.parse_args()
 
     # ---------------------------------
@@ -127,7 +126,7 @@ if __name__ == '__main__':
         callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'RESULTS/{args.outdir}/')
 
     trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 
-                         max_epochs = args.max_epochs, num_sanity_val_steps = 0, check_val_every_n_epoch = args.valfreq,
+                         max_epochs = args.training_epochs, num_sanity_val_steps = 0, check_val_every_n_epoch = args.valfreq,
                          deterministic = 'warn', callbacks = callback, logger = TensorBoardLogger('RESULTS', name = args.outdir))
 
     # -------------------------
