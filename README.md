@@ -4,28 +4,34 @@
 
 # Quick Setup
 
-### 1. Follow these instructions to install the latest version of PyTorch with CUDA support: https://pytorch.org
+1. Follow these instructions to install the latest version of PyTorch with CUDA support: https://pytorch.org
 
-- Please note, DELAY currently requires CUDA-capable GPUs for model training and prediction
+   - Please note, DELAY currently requires CUDA-capable GPUs for training and prediction
 
-### 2. Confirm that additional dependencies for ``pytorch-lightning`` and ``pandas`` have been satisfied
+2. Confirm that two additional dependencies ``pytorch-lightning`` and ``pandas`` have been satisfied
 
-### 3. Navigate to the location where you want to clone the repository and run:
+3. Navigate to the location where you want to clone the repository and run: 
 
-### ``$ git clone https://github.com/calebclayreagor/DELAY.git``
+```
+$ git clone https://github.com/calebclayreagor/DELAY.git
+```
 
 # Two Steps to Infer Gene-Regulatory Networks
 
-### 1. Fine-tune DELAY on datasets with partially-known ground truths, e.g. from ChIP-seq:
+### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq experiments:
 
-``python RunDELAY.py [datadir] [outdir] -p -m /.../trainedModel-1.ckpt -ft -k [val_fold] -e 1000``
+```
+python RunDELAY.py [datadir] [outdir] -p -m [/.../trainedModel-1.ckpt] -ft -k [val_fold] -e 1000
+```
 
-- Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory ``/DELAY``
-- By default, DELAY will save the best model weights in a checkpoint file in ``/DELAY/RESULTS/outdir``
+- Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main DELAY directory
+- By default, DELAY will save the best model weights to a checkpoint file in ``outdir``
 
-### 2. Predict gene-regulation probabilities across all TF-target pairs using fine-tuned model:
+### 2. Predict gene regulation across all TF-target gene pairs using the fine-tuned model:
 
-``python RunDELAY.py [datadir] [outdir] -p -m /.../finetunedModel.ckpt``
+```
+python RunDELAY.py [datadir] [outdir] -p -m [/.../finetunedModel.ckpt]
+```
 
 - DELAY will save the predicted probabilities as a ``tfs x genes`` matrix in ``outdir/regPredictions.csv``
 
