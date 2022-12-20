@@ -2,44 +2,30 @@
 
 ![DELAY](DELAY.png)
 
-## Quick Setup
+# Quick Setup
 
-Navigate to the location where you want to clone the repository and run:
+### 1. Follow these instructions to install the latest version of PyTorch with CUDA support: https://pytorch.org
 
-```
-$ git clone https://github.com/calebclayreagor/DELAY.git
-```
+- Please note, DELAY currently requires CUDA-capable GPUs for model training and prediction
 
-- Check the requirements file to confirm that all dependencies are satisfied
+### 2. Confirm that additional dependencies for ``pytorch-lightning`` and ``pandas`` have been satisfied
 
-- Please note, DELAY is currently configured for GPU training and prediction with `pytorch-cuda`
+### 3. Navigate to the location where you want to clone the repository and run:
 
-### Downloads
+### ``$ git clone https://github.com/calebclayreagor/DELAY.git``
 
-The datasets used in this study are available here: https://doi.org/10.5281/zenodo.5711739
+# Two Steps to Infer Gene-Regulatory Networks
 
-Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo.5711792
+### 1. Fine-tune DELAY on datasets with partially-known ground truths, e.g. from ChIP-seq:
 
-Experiment logs from the study are available here: https://tensorboard.dev/experiment/RBVBetLMRDiEvO7sBl452A
+``python RunDELAY.py [datadir] [outdir] -p -m /.../trainedModel-1.ckpt -ft -k [val_fold] -e 1000``
 
-## How To Use
+- Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory ``/DELAY``
+- By default, DELAY will save the best model weights in a checkpoint file in ``/DELAY/RESULTS/outdir``
 
-### Fine-tune DELAY on dataset(s) with partially-known ground-truth interactions (e.g. from ChIP-seq)
+### 2. Predict gene-regulation probabilities across all TF-target pairs using fine-tuned model:
 
-```
-python RunDELAY.py [datadir] [outdir] -m [ckptfile] -p -ft -k [valfold]
-```
-
-- DELAY optimizes the class weighted sum-of-losses (BCE Loss) per mini-batch, scaled by ``batch_size``
-- For best results, use the largest stable ``lr_init`` and set ``max_epochs>=10^3`` (see experiment logs)
-- If fine-tuning DELAY on scATAC-seq data, validate training using ``train_split=.7`` and set ``lr_init<=.5``
-- By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
-
-### Predict gene-regulation probabilities across TF-target gene pairs in dataset(s) using fine-tuned models
-
-```
-python RunDELAY.py [datadir] [outdir] -m [ckptfile] -p
-```
+``python RunDELAY.py [datadir] [outdir] -p -m /.../finetunedModel.ckpt``
 
 - DELAY will save the predicted probabilities as a ``tfs x genes`` matrix in ``outdir/regPredictions.csv``
 
@@ -71,6 +57,16 @@ One or more datasets can be specified as sub-directories in ``datadir`` containi
 python RunDELAY.py [datadir] [outdir] --model_type vgg -cfg 32 32 M 64 64 M 128 128 M --train -k [valfold]
 ```
 
-### Help
+## Help
 
-## Read the preprint at bioRxiv: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
+
+
+## Downloads
+
+The datasets used in this study are available here: https://doi.org/10.5281/zenodo.5711739
+
+Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo.5711792
+
+Experiment logs from the study are available here: https://tensorboard.dev/experiment/RBVBetLMRDiEvO7sBl452A
+
+## Read the preprint: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
