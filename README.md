@@ -12,7 +12,7 @@ $ git clone https://github.com/calebclayreagor/DELAY.git
 
 - Check the requirements file to confirm that all dependencies are satisfied
 
-- Please note, DELAY currently only supports training and prediction on GPUs
+- Please note, DELAY is currently configured for GPU training and prediction with `pytorch-cuda`
 
 ### Downloads
 
@@ -24,34 +24,10 @@ Experiment logs from the study are available here: https://tensorboard.dev/exper
 
 ## How To Use
 
-### Fine-tuning DELAY models on single-cell datasets with partially-known ground truths
+### Fine-tune DELAY on dataset(s) with partially-known ground-truth interactions (e.g. from ChIP-seq)
 
 ```
-# To prepare mini-batches of known TF-target examples from ground truth data (e.g. ChIP-seq)
-python RunDELAY.py --load_datasets False \
-                   --do_training False \
-                   --do_predict True \
-                   --do_finetune True \
-                   --datasets_dir /full/path/to/dsets/ \
-                   --data_type scrna-seq \
-                   --batch_size 512 \
-                   --neighbors 2 \
-                   --max_lag 5 \
-                   --nbins_img 32
-                  
-# To fine-tune on full ground truth (only suitable if fine-tuning DELAY on scRNA-seq data)
-python RunDELAY.py --global_seed 1010 \
-                   --do_training False \
-                   --do_predict True \
-                   --do_finetune True \
-                   --datasets_dir /full/path/to/dsets/ \
-                   --output_dir relative/path/for/logs \
-                   --model_dir /full/path/to/model.ckpt \
-                   --model_cfg 1024,M,512,M,256,M,128,M,64 \
-                   --model_type inverted-vgg \
-                   --train_split 1. \
-                   --lr_init .5 \
-                   --max_epochs 100
+python RunDELAY.py [datadir] [outdir] -m [ckptfile] -p -ft -k [valfold]
 ```
 
 - DELAY optimizes the class weighted sum-of-losses (BCE Loss) per mini-batch, scaled by ``batch_size``
@@ -59,50 +35,21 @@ python RunDELAY.py --global_seed 1010 \
 - If fine-tuning DELAY on scATAC-seq data, validate training using ``train_split=.7`` and set ``lr_init<=.5``
 - By default, DELAY will save the single best model from training in ``lightning_logs/output_dir``
 
-### Predicting gene regulation across all TF-target pairs in dataset using fine-tuned models
+### Predict gene-regulation probabilities across TF-target gene pairs in dataset(s) using fine-tuned models
 
 ```
-# To prepare mini-batches of all possible TF-target pairs from the single-cell dataset
-python RunDELAY.py --load_datasets False \
-                   --do_training False \
-                   --do_predict True \
-                   --datasets_dir /full/path/to/dsets/ \
-                   --data_type scrna-seq \
-                   --batch_size 512 \
-                   --neighbors 2 \
-                   --max_lag 5 \
-                   --nbins_img 32
-
-# To predict the probability of regulation across each TF-target pair in the dataset
-python RunDELAY.py --global_seed 1010 \
-                   --do_training False \
-                   --do_predict True \
-                   --datasets_dir /full/path/to/dsets/ \
-                   --output_dir relative/path/for/logs \
-                   --model_dir /full/path/to/finetuned/model.ckpt \
-                   --model_cfg 1024,M,512,M,256,M,128,M,64 \
-                   --model_type inverted-vgg
+python RunDELAY.py [datadir] [outdir] -m [ckptfile] -p
 ```
 
-- DELAY will save the predicted probabilities as a ``tfs x genes`` matrix in the ``output_dir`` (as a ``.csv`` file)
+- DELAY will save the predicted probabilities as a ``tfs x genes`` matrix in ``outdir/regPredictions.csv``
 
 ## Input Files
 
-The ``datasets_dir`` argument should point to the top-level directory of a tree with the following structure:
+One or more datasets can be specified as sub-directories in ``datadir`` containing the following input files:
 
-```
-data_split (e.g. training)/
-└── data_type (e.g. experimental)/
-    └── cell_type (e.g. stem-cell)/
-        └── study_name (e.g. velez-et-al-2021)/
-            └── data_version (e.g. combined-samples)/
-```
+### 1. ``NormalizedData.csv`` (required)
 
-One or more datasets can be specified as bottom-level directories containing the following input files:
-
-### 1. ``ExpressionData.csv`` or ``AccessibilityData.csv`` (required)
-
-- A labeled ``genes x cells`` matrix of normalized expression or accessibility values, respectively, for the input scRNA-seq dataset (expression) or scATAC-seq dataset (accessibility)
+- A labeled ``genes x cells`` matrix of normalized expression (scRNA-seq) or accessibility (scATAC-seq) values for the input dataset
 
 ### 2. ``PseudoTime.csv`` (required)
 
@@ -118,49 +65,12 @@ One or more datasets can be specified as bottom-level directories containing the
 
 ## More Examples
 
-### Training new models from scratch on single-cell datasets with fully-known ground truths
+### Train a new model with the specified configuration (e.g. VGG-6) on datasets with fully-known ground-truth interactions
 
 ```
-# To prepare mini-batches of TF-target pairs from the single-cell datasets
-python RunDELAY.py --load_datasets False \
-                   --do_training True \
-                   --datasets_dir /full/path/to/dsets/ \
-                   --data_type scatac-seq \
-                   --batch_size 512 \
-                   --neighbors 2 \
-                   --max_lag 5 \
-                   --nbins_img 32
-                   
-# To train a new model and validate on a 70/30 split of the data (e.g. VGG-6)  
-python RunDELAY.py --global_seed 1010 \
-                   --do_training True \
-                   --datasets_dir /full/path/to/dsets/ \
-                   --output_dir relative/path/for/logs \
-                   --model_cfg 32,32,M,64,64,M,128,128,M \
-                   --model_type vgg \
-                   --train_split .7 \
-                   --lr_init .5 \
-                   --max_epochs 100
+python RunDELAY.py [datadir] [outdir] --model_type vgg -cfg 32 32 M 64 64 M 128 128 M --train -k [valfold]
 ```
 
-- Use different values for the ``global_seed`` to generate different, random, reproducible training data splits
+### Help
 
-### Additional Arguments
-
-```
---nn_dropout (float): p_dropout before linear layers (default 0.)
-```
-
-```
---check_val_every_n_epoch (int): validation loop frequency (default 1)
-```
-
-```
---num_workers (int): number of subprocesses used for data loading (default 36)
-```
-
-```
---num_gpus (int): number of GPUs used for training (default 2)
-```
-
-## Read the preprint at bioRxiv: https://tinyurl.com/yckww2jn
+## Read the preprint at bioRxiv: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
