@@ -16,7 +16,7 @@
 
 # Two Steps to Infer Gene-Regulatory Networks
 
-### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq:
+### 1. Fine-tune DELAY on datasets with partially-known ground truths, e.g. from ChIP-seq:
 
 ``python RunDELAY.py [datadir] [outdir] -p -m /.../trainedModel-1.ckpt -ft -k [val_fold] -e 1000``
 
