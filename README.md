@@ -8,25 +8,15 @@
 
   - Please note, DELAY currently requires CUDA-capable GPUs for model training and prediction
 
-2. Confirm that the additional dependencies for ``pytorch-lightning`` and ``pandas`` have been satisfied
+2. Confirm that additional dependencies for ``pytorch-lightning`` and ``pandas`` have been satisfied
 
-3. Navigate to the location where you want to clone the repository for DELAY and run:
+3. Navigate to the location where you want to clone the repository and run:
 
 ```
 $ git clone https://github.com/calebclayreagor/DELAY.git
 ```
 
-### After installation
-
-4. Use TensorBoard to monitor training by navigating to DELAY and runnning: ``tensorboard --logdir RESULTS``
-
-### Downloads
-
-The datasets used in this study are available here: https://doi.org/10.5281/zenodo.5711739
-
-Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo.5711792
-
-Experiment logs from the study are available here: https://tensorboard.dev/experiment/RBVBetLMRDiEvO7sBl452A
+4. Use TensorBoard to monitor training from ``\DELAY`` by runnning: ``tensorboard --logdir RESULTS``
 
 ## How To Use
 
@@ -79,5 +69,14 @@ python RunDELAY.py [datadir] [outdir] --model_type vgg -cfg 32 32 M 64 64 M 128 
 
 ## Help
 
+
+
+## Downloads
+
+The datasets used in this study are available here: https://doi.org/10.5281/zenodo.5711739
+
+Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo.5711792
+
+Experiment logs from the study are available here: https://tensorboard.dev/experiment/RBVBetLMRDiEvO7sBl452A
 
 ## Read the preprint: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
