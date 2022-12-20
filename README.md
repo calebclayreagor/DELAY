@@ -18,11 +18,7 @@ $ git clone https://github.com/calebclayreagor/DELAY.git
 
 ### After installation
 
-4. Use TensorBoard to monitor training by navigating to DELAY and runnning:
-
-```
-tensorboard --logdir RESULTS
-```
+4. Use TensorBoard to monitor training by navigating to DELAY and runnning: ``tensorboard --logdir RESULTS``
 
 ### Downloads
 
