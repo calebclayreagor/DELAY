@@ -24,7 +24,7 @@ $ git clone https://github.com/calebclayreagor/DELAY.git
 python RunDELAY.py [datadir] [outdir] -p -m [.../trainedModel-1.ckpt] -ft -k [val_fold] -e 1000
 ```
 
-- ``datadir``/``outdir`` are the data/output directories, ``-m`` is the pre-trained model, and ``-k`` is the validation data fold
+- ``datadir``/``outdir`` are the data/output directories, ``-m`` is the pre-trained model, and ``-k`` is the validation fold
 - Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory
 - By default, DELAY will save the best model weights to a checkpoint file in ``RESULTS/outdir``
 
