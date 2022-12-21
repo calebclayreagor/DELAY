@@ -43,7 +43,7 @@ For additional help, run ``python RunDELAY.py --help``
 
 # Required Input Files for Datasets
 
-In the ``datadir``, DELAY will expect unique sub-directories for each dataset containing the following files: 
+DELAY will expect unique sub-directories for each dataset in ``datadir`` containing the following files: 
 
 1. ``NormalizedData.csv`` — A labeled ``genes x cells`` matrix of gene-expression or accessibility values
 
