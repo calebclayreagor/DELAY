@@ -16,6 +16,8 @@
 $ git clone https://github.com/calebclayreagor/DELAY.git
 ```
 
+4. Download the pre-trained model weights for DELAY here: https://doi.org/10.5281/zenodo.5711792
+
 # Two Steps to Infer Gene-Regulatory Networks
 
 ### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq experiments:
@@ -35,10 +37,13 @@ python RunDELAY.py [datadir] [outdir] -p -m [.../finetunedModel-1.ckpt]
 ```
 
 - DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir`` named ``regPredictions.csv``
+- By default, DELAY will load batches from existing sub-directories, so make sure to delete created directories for ``training``, ``validation`` and ``prediction`` in each dataset sub-directory when finished
 
-For help, run ``python RunDELAY.py --help``
+For additional help, run ``python RunDELAY.py --help`` from the main directory
 
 # Required Input Files for Datasets
+
+In the ``datadir``, DELAY will expect unique sub-directories for each dataset containing the following files: 
 
 1. ``NormalizedData.csv`` — A labeled ``genes x cells`` matrix of gene-expression or accessibility values
 
@@ -50,20 +55,13 @@ For help, run ``python RunDELAY.py --help``
 
 5. ``splitLabels.csv`` (REQUIRED FOR VALIDATION) — A single-column table (``tfs x "Split"``) of training and validation folds for TFs in the ``refNetwork``
 
-## More Examples
+## One Additional Example
 
 ### Train a new VGG-6 model on datasets with fully-known ground-truth interactions
 
 ```
-python RunDELAY.py [datadir] [outdir] --model_type vgg -cfg 32 32 M 64 64 M 128 128 M --train -k [val_fold]
+python RunDELAY.py [datadir] [outdir] --train -k [val_fold] \
+         --model_type vgg -cfg 32 32 M 64 64 M 128 128 M
 ```
-
-## Downloads
-
-The datasets used in this study are available here: https://doi.org/10.5281/zenodo.5711739
-
-Saved model weights for DELAY are available here: https://doi.org/10.5281/zenodo.5711792
-
-Experiment logs from the study are available here: https://tensorboard.dev/experiment/RBVBetLMRDiEvO7sBl452A
 
 ### Read the preprint: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
