@@ -37,11 +37,9 @@ python RunDELAY.py [datadir] [outdir] -p -m [/.../finetunedModel-1.ckpt]
 
 # Input Files
 
-1. ``NormalizedData.csv`` — A ``genes x cells`` matrix of single-cell gene-expression or accessibility values (REQUIRED)
+1. ``NormalizedData.csv`` — A ``genes x cells`` matrix of gene-expression or accessibility values (REQUIRED)
 
-### 2. ``PseudoTime.csv`` (required)
-
-- A labeled ``cells x trajectories`` matrix of inferred pseudotime values for one or more trajectories (e.g. ``PseudoTime1``, ``PseudoTime2``, etc.) found in the input dataset (each used separately)
+2. ``PseudoTime.csv`` — Table of inferred pseudotime values (``PseudoTime``) (required)
 
 ### 3. ``refNetwork.csv`` (required)
 
