@@ -8,7 +8,7 @@
 
    - Please note, DELAY currently requires CUDA-capable GPUs for training and prediction
 
-2. Confirm that two additional dependencies ``pytorch-lightning`` and ``pandas`` have been satisfied
+2. Confirm that two additional dependencies (``pytorch-lightning`` and ``pandas``) have been satisfied
 
 3. Navigate to the location where you want to clone the repository and run: 
 
@@ -25,15 +25,15 @@ python RunDELAY.py [datadir] [outdir] -p -m [/.../trainedModel-1.ckpt] -ft -k [v
 ```
 
 - Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory
-- By default, DELAY will save the best model weights to a checkpoint file in ``outdir``
+- By default, DELAY will save the best model weights to a checkpoint file in ``RESULTS/outdir``
 
-### 2. Predict gene regulation across all TF-target gene pairs using the fine-tuned model:
+### 2. Predict gene regulation across all TF-target gene pairs in the dataset using the fine-tuned model:
 
 ```
-python RunDELAY.py [datadir] [outdir] -p -m [/.../finetunedModel.ckpt]
+python RunDELAY.py [datadir] [outdir] -p -m [/.../finetunedModel-1.ckpt]
 ```
 
-- DELAY will save the predicted probabilities as a ``tfs x genes`` matrix in ``outdir/regPredictions.csv``
+- DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir/regPredictions.csv``
 
 # Input Files
 
