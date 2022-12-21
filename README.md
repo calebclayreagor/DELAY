@@ -45,7 +45,7 @@ python RunDELAY.py [datadir] [outdir] -p -m [.../finetunedModel-1.ckpt]
 
 4. ``TranscriptionFactors.csv`` (REQUIRED FOR INFERENCE) — A list of known transcription factors and co-factors in the dataset
 
-5. ``splitLabels.csv`` (OPTIONAL) — A single-column table (``tfs x "Split"``) of training and validation folds for TFs in the ``refNetwork``
+5. ``splitLabels.csv`` (REQUIRED FOR VALIDATION) — A single-column table (``tfs x "Split"``) of training and validation folds for TFs in the ``refNetwork``
 
 ## More Examples
 
