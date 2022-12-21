@@ -35,21 +35,17 @@ python RunDELAY.py [datadir] [outdir] -p -m [/.../finetunedModel-1.ckpt]
 
 - DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir/regPredictions.csv``
 
-# Input Files
+# Input Files for Each Dataset
 
-1. ``NormalizedData.csv`` — A ``genes x cells`` matrix of gene-expression or accessibility values (REQUIRED)
+1. ``NormalizedData.csv`` — A labeled ``genes x cells`` matrix of gene-expression or accessibility values
 
-2. ``PseudoTime.csv`` — Table of inferred pseudotime values (``PseudoTime``) (required)
+2. ``PseudoTime.csv`` — A single-column ``cells x "PseudoTime"`` table of inferred pseudotime values
 
-### 3. ``refNetwork.csv`` (required)
+3. ``refNetwork.csv`` — A two-column table of ground-truth interactions between TFs (``"Gene1"``) and targets (``"Gene2"``)
 
-- A two-column table of transcription factors (``Gene1``) and targets (``Gene2``) in the fully- or partially-known ground truth regulatory network (e.g. from cell-type specific ChIP-seq data)
+4. ``TranscriptionFactors.csv`` (REQUIRED FOR INFERENCE) — A list of known transcription factors and co-factors in the data
 
-### 4. ``TranscriptionFactors.csv`` (optional)
-
-- A one-column table of known transcription factors (``Gene1``) in the input dataset (required for finetuning and prediction with partially-known ground truths)
-
-One or more datasets can be specified as sub-directories in ``datadir`` containing the following input files:
+5. ``splitLabels.csv`` (OPTIONAL) — A single-column ``tfs x "Split"`` table of training and validation folds for TFs in refNetwork
 
 ## More Examples
 
