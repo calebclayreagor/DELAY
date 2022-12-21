@@ -57,7 +57,7 @@ DELAY will expect unique sub-directories for each dataset in ``datadir`` contain
 
 ## One Additional Example
 
-### Train a new VGG-6 model on datasets with fully-known ground-truth interactions
+### Train a new VGG-6 model on datasets with fully-known ground-truth interactions:
 
 ```
 python RunDELAY.py [datadir] [outdir] --train -k [val_fold] \
