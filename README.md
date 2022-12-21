@@ -18,6 +18,8 @@ $ git clone https://github.com/calebclayreagor/DELAY.git
 
 4. Download the pre-trained model weights for DELAY here: https://doi.org/10.5281/zenodo.5711792
 
+---
+
 # Two Steps to Infer Gene-Regulatory Networks
 
 ### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq experiments:
@@ -41,6 +43,8 @@ python RunDELAY.py [datadir] [outdir] -p -m [.../finetunedModel-1.ckpt]
 
 For additional help, run ``python RunDELAY.py --help``
 
+---
+
 # Required Input Files for Datasets
 
 DELAY will expect unique sub-directories for each dataset in ``datadir`` containing the following files: 
@@ -54,6 +58,8 @@ DELAY will expect unique sub-directories for each dataset in ``datadir`` contain
 4. ``TranscriptionFactors.csv`` (REQUIRED FOR INFERENCE) — A list of known transcription factors and co-factors in the dataset
 
 5. ``splitLabels.csv`` (REQUIRED FOR VALIDATION) — A single-column table (``tfs x "Split"``) of training and validation folds for TFs in the ``refNetwork``
+
+---
 
 ## One Additional Example
 
