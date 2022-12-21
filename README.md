@@ -2,6 +2,8 @@
 
 ![DELAY](DELAY.png)
 
+---
+
 # Quick Setup
 
 1. Follow these instructions to install the latest version of PyTorch with CUDA support: https://pytorch.org
