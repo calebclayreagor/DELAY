@@ -21,31 +21,31 @@ $ git clone https://github.com/calebclayreagor/DELAY.git
 ### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq experiments:
 
 ```
-python RunDELAY.py [datadir] [outdir] -p -m [/.../trainedModel-1.ckpt] -ft -k [val_fold] -e 1000
+python RunDELAY.py [datadir] [outdir] -p -m [.../trainedModel-1.ckpt] -ft -k [val_fold] -e 1000
 ```
 
 - Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory
 - By default, DELAY will save the best model weights to a checkpoint file in ``RESULTS/outdir``
 
-### 2. Predict gene regulation across all TF-target gene pairs in datasets using the fine-tuned model:
+### 2. Predict gene regulation across all TF-target gene pairs using the fine-tuned model:
 
 ```
-python RunDELAY.py [datadir] [outdir] -p -m [/.../finetunedModel-1.ckpt]
+python RunDELAY.py [datadir] [outdir] -p -m [.../finetunedModel-1.ckpt]
 ```
 
-- DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir/regPredictions.csv``
+- DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir`` named ``regPredictions.csv``
 
-# Input Files for Each Dataset
+# Input Files for Datasets
 
 1. ``NormalizedData.csv`` — A labeled ``genes x cells`` matrix of gene-expression or accessibility values
 
-2. ``PseudoTime.csv`` — A single-column ``cells x "PseudoTime"`` table of inferred pseudotime values
+2. ``PseudoTime.csv`` — A single-column table (``cells x "PseudoTime"``) of inferred pseudotime values
 
-3. ``refNetwork.csv`` — A two-column table of ground-truth interactions between TFs (``"Gene1"``) and targets (``"Gene2"``)
+3. ``refNetwork.csv`` — A two-column table of ground-truth interactions between TFs (``"Gene1"``) and target genes (``"Gene2"``)
 
-4. ``TranscriptionFactors.csv`` (REQUIRED FOR INFERENCE) — A list of known transcription factors and co-factors in the data
+4. ``TranscriptionFactors.csv`` (REQUIRED FOR INFERENCE) — A list of known transcription factors and co-factors in the dataset
 
-5. ``splitLabels.csv`` (OPTIONAL) — A single-column ``tfs x "Split"`` table of training and validation folds for TFs in refNetwork
+5. ``splitLabels.csv`` (OPTIONAL) — A single-column table (``tfs x "Split"``) of training and validation folds for TFs in the ``refNetwork``
 
 ## More Examples
 
