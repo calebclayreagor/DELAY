@@ -24,6 +24,7 @@ $ git clone https://github.com/calebclayreagor/DELAY.git
 python RunDELAY.py [datadir] [outdir] -p -m [.../trainedModel-1.ckpt] -ft -k [val_fold] -e 1000
 ```
 
+- ``datadir``/``outdir`` are the data/output directories, ``-m`` is the pre-trained model, and ``-k`` is the validation data fold
 - Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory
 - By default, DELAY will save the best model weights to a checkpoint file in ``RESULTS/outdir``
 
@@ -35,7 +36,9 @@ python RunDELAY.py [datadir] [outdir] -p -m [.../finetunedModel-1.ckpt]
 
 - DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir`` named ``regPredictions.csv``
 
-# Input Files for Datasets
+For help, run ``python RunDELAY.py --help``
+
+# Required Input Files for Datasets
 
 1. ``NormalizedData.csv`` — A labeled ``genes x cells`` matrix of gene-expression or accessibility values
 
@@ -49,15 +52,11 @@ python RunDELAY.py [datadir] [outdir] -p -m [.../finetunedModel-1.ckpt]
 
 ## More Examples
 
-### Train a new model with the specified configuration (e.g. VGG-6) on datasets with fully-known ground-truth interactions
+### Train a new VGG-6 model on datasets with fully-known ground-truth interactions
 
 ```
-python RunDELAY.py [datadir] [outdir] --model_type vgg -cfg 32 32 M 64 64 M 128 128 M --train -k [valfold]
+python RunDELAY.py [datadir] [outdir] --model_type vgg -cfg 32 32 M 64 64 M 128 128 M --train -k [val_fold]
 ```
-
-## Help
-
-
 
 ## Downloads
 
