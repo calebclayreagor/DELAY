@@ -47,7 +47,7 @@ DELAY will expect unique sub-directories for each dataset in ``datadir`` contain
 
 1. ``NormalizedData.csv`` — A labeled ``genes x cells`` matrix of gene-expression or accessibility values
 
-2. ``PseudoTime.csv`` — A single-column table (``cells x "PseudoTime"``) of inferred pseudotime values
+2. ``PseudoTime.csv`` — A single-column table of inferred pseudotime values (``cells x "PseudoTime"``)
 
 3. ``refNetwork.csv`` — A two-column table of ground-truth interactions between TFs (``"Gene1"``) and target genes (``"Gene2"``)
 
