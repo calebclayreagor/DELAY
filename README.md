@@ -47,7 +47,7 @@ For additional help, run ``python RunDELAY.py --help``
 
 ---
 
-# Required Input Files for Datasets
+# Required Input Files for Single-Cell Datasets
 
 DELAY will expect unique sub-directories for each dataset in ``datadir`` containing the following files: 
 
