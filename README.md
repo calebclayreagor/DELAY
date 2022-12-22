@@ -61,7 +61,7 @@ DELAY will expect unique sub-directories for each dataset in ``datadir`` contain
 
 5. ``splitLabels.csv`` (REQUIRED FOR VALIDATION) — A single-column table (``tfs x "Split"``) of training and validation folds for TFs in the ``refNetwork``
 
-For help, see the ``example-data`` directory[^1]
+For more help, see the ``example-data`` directory[^1]
 
 ---
 
