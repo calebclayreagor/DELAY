@@ -18,7 +18,7 @@
 $ git clone https://github.com/calebclayreagor/DELAY.git
 ```
 
-4. Download the pre-trained model weights for DELAY here: https://doi.org/10.5281/zenodo.5711792
+4. Download the pre-trained model weights for DELAY: https://doi.org/10.5281/zenodo.5711792
 
 ---
 
