@@ -41,7 +41,7 @@ python RunDELAY.py [datadir] [outdir] -p -m [.../finetunedModel-1.ckpt]
 ```
 
 - DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir`` named ``regPredictions.csv``
-- By default, DELAY will load batches from existing sub-directories, so make sure to delete created directories for ``training``, ``validation`` and ``prediction`` when finished
+- By default, DELAY will load batches from existing directories, so make sure to delete created folders for ``training``, ``validation`` and ``prediction`` batches when finished
 
 For additional help, run ``python RunDELAY.py --help``
 
