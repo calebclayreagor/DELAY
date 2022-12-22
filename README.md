@@ -61,6 +61,8 @@ DELAY will expect unique sub-directories for each dataset in ``datadir`` contain
 
 5. ``splitLabels.csv`` (REQUIRED FOR VALIDATION) — A single-column table (``tfs x "Split"``) of training and validation folds for TFs in the ``refNetwork``
 
+For help, see the ``example-data`` directory[^1]
+
 ---
 
 ## One Additional Example
@@ -73,3 +75,5 @@ python RunDELAY.py [datadir] [outdir] --train -k [val_fold] \
 ```
 
 ### Read the preprint: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
+
+[^1]: Example data taken from [Hayashi et al., *Nature Communications* (2018)](https://doi.org/10.1038/s41467-018-02866-0)
