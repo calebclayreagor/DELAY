@@ -161,7 +161,7 @@ class Dataset(torch.utils.data.Dataset):
         gpairs = [tuple(list(g) + list(gpcorr.loc[g[0], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index)
                                 + list(gpcorr.loc[g[1], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index))
                   for g in itertools.product(sorted(set(g1)), ds.columns)]
-        random.shuffle(gpairs)
+        random.seed(1234); random.shuffle(gpairs)
 
         # groups of TF-target gpairs for mini-batches
         if self.args.batch_size is not None:
