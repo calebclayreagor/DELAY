@@ -27,7 +27,7 @@ $ git clone https://github.com/calebclayreagor/DELAY.git
 ### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq experiments:
 
 ```
-python RunDELAY.py [datadir] [outdir] -p -m [.../trainedModel-1.ckpt] -ft -k [val_fold] -e 1000
+python RunDELAY.py [datadir] [outdir] -p -m [.../trainedModel-1.ckpt] -ft -k [val_fold] -e 200
 ```
 
 - ``datadir``/``outdir`` are the data/output directories, ``-m`` is the pre-trained model, and ``-k`` is the validation fold
