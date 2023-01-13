@@ -35,7 +35,6 @@ if __name__ == '__main__':
     parser.add_argument('-lg', '--max_lag', metavar = 'LG', type = int, default = 5, help = 'number of lagged matrices to include in input')
     parser.add_argument('-lr', '--learning_rate', metavar = 'LR', type = float, default = .5)
     parser.add_argument('-e', '--training_epochs', metavar = 'E', type = int, default = 100)
-    parser.add_argument('-ve', '--val_freq', metavar = 'VE', dest = 'valfreq', type = int, default = 1)
     parser.add_argument('-w', '--workers', metavar = 'W', type = int, default = os.cpu_count(), help = 'number of sub-processes for mini-batch loading')
     parser.add_argument('-g', '--gpus', metavar = 'G', type = int, default = -1, help = 'number of GPUs for distributed training')
     parser.add_argument('--train', action = 'store_true', help = 'train new model from scratch')
@@ -128,7 +127,7 @@ if __name__ == '__main__':
         callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'RESULTS/{args.outdir}/')
 
     trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 
-                         max_epochs = args.training_epochs, num_sanity_val_steps = 0, check_val_every_n_epoch = args.valfreq, log_every_n_steps = loss_freq,
+                         max_epochs = args.training_epochs, num_sanity_val_steps = 0, log_every_n_steps = loss_freq,
                          deterministic = 'warn', callbacks = callback, logger = TensorBoardLogger('RESULTS', name = args.outdir))
 
     # -------------------------
