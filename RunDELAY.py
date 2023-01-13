@@ -36,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('-lr', '--learning_rate', metavar = 'LR', type = float, default = .5)
     parser.add_argument('-e', '--training_epochs', metavar = 'E', type = int, default = 100)
     parser.add_argument('-ve', '--val_freq', metavar = 'VE', dest = 'valfreq', type = int, default = 1)
-    parser.add_argument('-w', '--workers', metavar = 'W', type = int, default = 2, help = 'number of sub-processes for mini-batch loading')
+    parser.add_argument('-w', '--workers', metavar = 'W', type = int, default = os.cpu_count(), help = 'number of sub-processes for mini-batch loading')
     parser.add_argument('-g', '--gpus', metavar = 'G', type = int, default = -1, help = 'number of GPUs for distributed training')
     parser.add_argument('--train', action = 'store_true', help = 'train new model from scratch')
     parser.add_argument('--test', action = 'store_true', help = 'test pre-trained model on augmented data/inputs')
