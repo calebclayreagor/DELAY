@@ -15,7 +15,7 @@
 3. Navigate to the location where you want to clone the repository and run: 
 
 ```
-$ git clone https://github.com/calebclayreagor/DELAY.git
+git clone https://github.com/calebclayreagor/DELAY.git
 ```
 
 4. Download the pre-trained model weights for DELAY from Zenodo: https://doi.org/10.5281/zenodo.7474115
