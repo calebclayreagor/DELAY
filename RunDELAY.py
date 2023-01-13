@@ -55,7 +55,8 @@ if __name__ == '__main__':
     # ---------------------------------
     # set up run for pytorch_lightning
     # ---------------------------------
-    pl.seed_everything(1234); callback = None
+    callback, loss_freq = None, 1
+    pl.seed_everything(1234)
     if args.train == True: prefix = 'val_'
     elif args.test == True: prefix = 'test_'
     elif args.predict == True: prefix = 'pred_'
@@ -95,8 +96,7 @@ if __name__ == '__main__':
     if len(training) > 0:
         training = ConcatDataset(training)  # training dataloader is also used for prediction
         train_loader = DataLoader(training, batch_size = None, shuffle = True, num_workers = args.workers, pin_memory = True)
-    
-    input(len(train_loader))
+        loss_freq = int(round(len(train_loader) / 50) + 1)
 
     if len(validation) > 0:
         val_loader = [None] * len(validation)
@@ -128,7 +128,7 @@ if __name__ == '__main__':
         callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'RESULTS/{args.outdir}/')
 
     trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 
-                         max_epochs = args.training_epochs, num_sanity_val_steps = 0, check_val_every_n_epoch = args.valfreq, log_every_n_steps = 5,
+                         max_epochs = args.training_epochs, num_sanity_val_steps = 0, check_val_every_n_epoch = args.valfreq, log_every_n_steps = loss_freq,
                          deterministic = 'warn', callbacks = callback, logger = TensorBoardLogger('RESULTS', name = args.outdir))
 
     # -------------------------
