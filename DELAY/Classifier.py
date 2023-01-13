@@ -141,9 +141,6 @@ class Classifier(pl.LightningModule):
         g_fn = list(map(str, sorted(Path(ds_dir).glob(f'*/prediction/g_*.npy'))))
         for j in range(len(pred_fn)):
             pred_j = np.load(pred_fn[j]).reshape(-1)
-
-            input(pred_j)
-
             g_j = np.load(g_fn[j]).reshape(-1)
             g_j = np.stack(np.char.split(g_j, ' '), axis = 0)
             ii = np.where(g_j[:, 0][:, None] == g1[None, :])[1]
