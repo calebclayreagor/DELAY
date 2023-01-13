@@ -70,7 +70,7 @@ For more help, see the ``example-data`` directory[^1]
 ### Train a new VGG-6 model on datasets with fully-known ground-truth interactions:
 
 ```
-python RunDELAY.py [datadir] [outdir] --train -bs 512 -k [val_fold] \
+python RunDELAY.py [datadir] [outdir] --train -k [val_fold] \
          --model_type vgg -cfg 32 32 M 64 64 M 128 128 M
 ```
 
