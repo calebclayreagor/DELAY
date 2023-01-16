@@ -11,11 +11,13 @@ class SiameseVGG(nn.Module):
 
     def __init__(self: Self, 
                  cfg: List[Union[int, str]], 
-                 neighbors: int
+                 neighbors: int,
+                 max_lag: int,
                  ) -> Self:
         super(SiameseVGG, self).__init__()
-        self.primary_features = self.make_layers(cfg)
-        self.neighbor_features = self.make_layers(cfg)
+        self.in_channels = (1 + max_lag)
+        self.primary_features = self.make_layers(cfg, self.in_channels)
+        self.neighbor_features = self.make_layers(cfg, self.in_channels)
         self.primary_embedding = nn.Sequential(
                                     nn.Linear(128 * 4 * 4, 512),
                                     nn.ReLU())
@@ -31,22 +33,24 @@ class SiameseVGG(nn.Module):
         self._initialize_weights()
 
     def forward_primary(self: Self, x: torch.Tensor) -> torch.Tensor:
-        out = torch.unsqueeze(x, 1)
-        out = self.primary_features(out)
+        if x.dim() < 4: x = torch.unsqueeze(x, 1)
+        out = self.primary_features(x)
         out = torch.flatten(out, 1)
         return self.primary_embedding(out)
 
     def forward_neighbor(self: Self, x: torch.Tensor) -> torch.Tensor:
-        out = torch.unsqueeze(x, 1)
-        out = self.neighbor_features(out)
+        if x.dim() < 4: x = torch.unsqueeze(x, 1)
+        out = self.neighbor_features(x)
         out = torch.flatten(out, 1)
         return self.neighbor_embedding(out)
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
-        primary, neighbors = x[:, 0, :, :], x[:, 1:, :, :]
+        primary = x[:, :self.in_channels, :, :]
+        neighbors = x[:, (self.in_channels + 1):, :, :]
         out = self.forward_primary(primary)
-        for idx in range(neighbors.size(1)):
-            out2 = self.forward_neighbor(neighbors[:, idx, :, :])
+        for idx in range(0, neighbors.size(1), self.in_channels):
+            out2 = neighbors[:, idx : (idx + self.in_channels), :, :]
+            out2 = self.forward_neighbor(out2)
             out = torch.cat([out, out2], axis=1)
         return self.classifier(out)
 
@@ -57,7 +61,7 @@ class SiameseVGG(nn.Module):
 
     def make_layers(self: Self,
                     cfg: List[Union[int, str]], 
-                    in_channels: int = 1,
+                    in_channels: int,
                     ) -> nn.Sequential:
         layers: List[nn.Module] = []
         for v in cfg:
