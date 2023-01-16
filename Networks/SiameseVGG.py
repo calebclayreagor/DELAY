@@ -48,6 +48,7 @@ class SiameseVGG(nn.Module):
         primary = x[:, :self.in_channels, :, :]
         neighbors = x[:, (self.in_channels + 1):, :, :]
         out = self.forward_primary(primary)
+        input(list(range(0, neighbors.size(1), self.in_channels)))
         for idx in range(0, neighbors.size(1), self.in_channels):
             out2 = neighbors[:, idx : (idx + self.in_channels + 1), :, :]
             out2 = self.forward_neighbor(out2)
