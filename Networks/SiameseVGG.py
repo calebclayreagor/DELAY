@@ -49,7 +49,7 @@ class SiameseVGG(nn.Module):
         neighbors = x[:, (self.in_channels + 1):, :, :]
         out = self.forward_primary(primary)
         for idx in range(0, neighbors.size(1), self.in_channels):
-            out2 = neighbors[:, idx : (idx + self.in_channels), :, :]
+            out2 = neighbors[:, idx : (idx + self.in_channels + 1), :, :]
             out2 = self.forward_neighbor(out2)
             out = torch.cat([out, out2], axis=1)
         return self.classifier(out)
