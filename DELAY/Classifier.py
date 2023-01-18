@@ -118,9 +118,9 @@ class Classifier(pl.LightningModule):
         test_auprc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         test_auroc = torch.zeros((len(self.valnames),), device = torch.cuda.current_device())
         for idx in range(len(self.valnames)):
+            test_auprc[idx], test_auroc[idx] = self.val_auprc[idx].compute(), self.val_auroc[idx].compute()
             target_idx = self.val_auprc[idx].target
             input(target_idx)
-            test_auprc[idx], test_auroc[idx] = self.val_auprc[idx].compute(), self.val_auroc[idx].compute()
             self.log(f'_{self.valnames[idx]}auprc', test_auprc[idx], sync_dist = True, add_dataloader_idx = False)
             self.log(f'_{self.valnames[idx]}auroc', test_auroc[idx], sync_dist = True, add_dataloader_idx = False)
             self.log(f'_{self.valnames[idx]}_density', target_idx.sum()/target_idx.size(0), sync_dist = True, add_dataloader_idx = False)
