@@ -122,7 +122,7 @@ class Classifier(pl.LightningModule):
             target_idx = torch.cat(self.val_auprc[idx].target)
             self.log(f'_{self.valnames[idx]}auprc', test_auprc[idx], sync_dist = True, add_dataloader_idx = False)
             self.log(f'_{self.valnames[idx]}auroc', test_auroc[idx], sync_dist = True, add_dataloader_idx = False)
-            self.log(f'_{self.valnames[idx]}_density', target_idx.sum()/target_idx.size(0), sync_dist = True, add_dataloader_idx = False)
+            self.log(f'_{self.valnames[idx]}density', target_idx.sum()/target_idx.size(0), sync_dist = True, add_dataloader_idx = False)
             self.val_auprc[idx].reset(); self.val_auroc[idx].reset()
         avg_auprc, avg_auroc = test_auprc.mean(), test_auroc.mean()
         self.log(f'_{self.prefix}avg_auprc', avg_auprc, sync_dist = True, add_dataloader_idx = False)
