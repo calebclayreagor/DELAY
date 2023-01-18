@@ -16,7 +16,7 @@ class VGG(nn.Module):
         super(VGG, self).__init__()
         self.features = self.make_layers(cfg, in_channels)
         self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.classifier = nn.Sequential(nn.Linear(cfg[-1], 1))
+        self.classifier = nn.Linear(cfg[-1], 1)
         self._initialize_weights()
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
