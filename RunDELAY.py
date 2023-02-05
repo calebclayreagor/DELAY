@@ -94,7 +94,7 @@ if __name__ == '__main__':
     # --------------------------------
     if len(training) > 0:
         training = ConcatDataset(training)  # training dataloader is also used for prediction
-        train_loader = DataLoader(training, batch_size = None, shuffle = True, num_workers = args.workers, pin_memory = True)
+        train_loader = DataLoader(training, batch_size = None, shuffle = (not args.predict), num_workers = args.workers, pin_memory = True)
         loss_freq = int(round(len(train_loader) / 50) + 1)
 
     if len(validation) > 0:
