@@ -72,6 +72,7 @@ if __name__ == '__main__':
             train_ds, val_ds = None, None
             if args.train == True or args.finetune == True:
                 train_ds = Dataset(args, f, 'training')
+                shuffle_train = True
                 if args.valsplit is not None:
                     val_ds = Dataset(args, f, 'validation')
 
@@ -80,6 +81,7 @@ if __name__ == '__main__':
                 val_ds = Dataset(args, f, 'validation')
             elif args.predict == True:
                 train_ds = Dataset(args, f, 'prediction')
+                shuffle_train = False
 
             # update dsets lists/names
             if train_ds is not None: 
@@ -94,7 +96,7 @@ if __name__ == '__main__':
     # --------------------------------
     if len(training) > 0:
         training = ConcatDataset(training)  # training dataloader is also used for prediction
-        train_loader = DataLoader(training, batch_size = None, shuffle = (not args.predict), num_workers = args.workers, pin_memory = True)
+        train_loader = DataLoader(training, batch_size = None, shuffle = shuffle_train, num_workers = args.workers, pin_memory = True)
         loss_freq = int(round(len(train_loader) / 50) + 1)
 
     if len(validation) > 0:
