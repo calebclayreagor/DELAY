@@ -135,7 +135,7 @@ class Classifier(pl.LightningModule):
         tf_fn = glob.glob(f'{ds_dir}*/TranscriptionFactors.csv')[0]
         ds_fn = glob.glob(f'{ds_dir}*/NormalizedData.csv')[0]
         g1 = np.char.lower(np.loadtxt(tf_fn, delimiter = ',', dtype = str))
-        g2 = pd.read_csv(ds_fn, index_col = 0).index.str.lower()
+        g2 = pd.read_csv(ds_fn, index_col = 0).index.str.lower().values
         pred_mat = pd.DataFrame(0., index = g1, columns = g2)
         pred_fn = list(map(str, sorted(Path(ds_dir).glob(f'*/prediction/pred_*.npy'))))
         g_fn = list(map(str, sorted(Path(ds_dir).glob(f'*/prediction/g_*.npy'))))
