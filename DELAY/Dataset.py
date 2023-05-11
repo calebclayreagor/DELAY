@@ -49,6 +49,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def shuffle_pseudotime(self: Self, pt: np.ndarray) -> np.ndarray:
         """Probabilistically swap cells' positions along trajectory at the given scale"""
+        np.random.seed(pt.size)
         for i in np.arange(pt.size):
             j = np.random.normal(loc = 0, scale = self.args.shuffle * pt.size)
             _i_ = int(round(np.clip(i + j, 0, pt.size - 1)))
