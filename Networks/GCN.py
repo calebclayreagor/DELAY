@@ -4,6 +4,7 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.nn import Sequential
 from typing import List
 from typing import TypeVar
+import numpy as np
 
 Self = TypeVar('Self', bound = 'GCN')
 
@@ -24,7 +25,6 @@ class GCN(nn.Module):
                 # edge_index: torch.Tensor
                 ) -> torch.Tensor:
         out = torch.zeros(x.size(0), 1, device = torch.cuda.current_device())
-        x = torch.flatten(x, start_dim = 1)
         edge_index = torch.tensor([[0,  1,  1,  1,  1,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,  5, 
                                     5,  5,  6,  6,  6,  6,  6,  7,  7,  7,  8,  8,  8,  9,  9,  9,
                                     10, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15,
@@ -35,9 +35,18 @@ class GCN(nn.Module):
                                     6,  9, 11, 10, 12, 23, 11, 13, 21,  9, 12, 14, 13, 15, 20, 14,
                                     16, 18,  8, 15, 17,  5, 16, 18, 15, 17, 25, 26,  5, 14, 12, 22,
                                     23, 21,  7, 11, 21,  3, 18, 18]], 
-                                   dtype = torch.long, device = torch.cuda.current_device())    ##
+                                   dtype = torch.long, device = torch.cuda.current_device())
+        pe = np.zeros((x.size(1), x.size(2), x.size(3)))
+        pe += (np.sin(np.linspace(0, 3 * np.pi, pe.shape[0]))[:, None, None] + 1) / 2
+        pe += (np.sin(np.linspace(0, 3 * np.pi, pe.shape[1]))[None, :, None] + 1) / 2
+        pe += (np.sin(np.linspace(0, 3 * np.pi, pe.shape[2]))[None, None, :] + 1) / 2
+        pe += np.linspace(0, 1, pe.shape[1])[None, :, None]
+        pe += np.linspace(0, 1, pe.shape[2])[None, None, :]
+        _, yy, _ = np.indices(pe.shape)
+        pe += (yy - (x.size(-1) / 2)) / (x.size(-1) / 2)
         for i in range(x.size(0)):
-            xi = torch.tile(x[i, :], (edge_index.size(1), 1))   ##
+            xi = torch.flatten(x[i, ...] + pe)
+            xi = torch.tile(xi, (edge_index.size(1), 1))
             xi = self.features(xi, edge_index)
             out[i] = self.classifier(xi)[0]
         return out
