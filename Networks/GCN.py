@@ -25,9 +25,17 @@ class GCN(nn.Module):
                 ) -> torch.Tensor:
         out = torch.zeros(x.size(0), 1, device = torch.cuda.current_device())
         x = torch.flatten(x, start_dim = 1)
-        edge_index = torch.tensor([[0, 0, 1, 1, 2, 2],
-                                   [1, 2, 0, 2, 0, 1]], dtype = torch.long,
-                                   device = torch.cuda.current_device())    ##
+        edge_index = torch.tensor([[0,  1,  1,  1,  1,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,  5, 
+                                    5,  5,  6,  6,  6,  6,  6,  7,  7,  7,  8,  8,  8,  9,  9,  9,
+                                    10, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15,
+                                    15, 15, 16, 16, 16, 17, 17, 17, 18, 18, 18, 18, 19, 20, 21, 21,
+                                    21, 22, 23, 23, 23, 24, 25, 26],
+                                   [1,  0,  2,  4,  6,  1,  3,  7,  2,  4, 24,  1,  3,  5,  4,  6,
+                                    17, 19,  1,  5,  7,  8, 10,  2,  6, 23,  6,  9, 16,  8, 10, 13,
+                                    6,  9, 11, 10, 12, 23, 11, 13, 21,  9, 12, 14, 13, 15, 20, 14,
+                                    16, 18,  8, 15, 17,  5, 16, 18, 15, 17, 25, 26,  5, 14, 12, 22,
+                                    23, 21,  7, 11, 21,  3, 18, 18]], 
+                                   dtype = torch.long, device = torch.cuda.current_device())    ##
         for i in range(x.size(0)):
             xi = torch.tile(x[i, :], (3, 1))   ##
             xi = self.features(xi, edge_index)
