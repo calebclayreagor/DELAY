@@ -14,6 +14,7 @@ from DELAY.Classifier import Classifier
 from Networks.VGG_CNNC import VGG_CNNC
 from Networks.SiameseVGG import SiameseVGG
 from Networks.vgg import VGG
+from Networks.GCN import GCN   ##
 
 sys.path.append('Networks/')
 
@@ -41,7 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--test', action = 'store_true', help = 'test pre-trained model on augmented data/inputs')
     parser.add_argument('-cfg', '--model_config', metavar = 'LAYER', dest = 'model_cfg', nargs = '*', default = ['1024', 'M', '512', 'M', '256', 'M', '128', 'M', '64'], 
         help = 'configure convolutional and max-pooling layers for feature extractor (e.g. 32 32 M 64 64 M ...)')
-    parser.add_argument('--model_type', choices = ['inverted-vgg', 'vgg-cnnc', 'siamese-vgg', 'vgg'], default = 'inverted-vgg')
+    parser.add_argument('--model_type', choices = ['inverted-vgg', 'vgg-cnnc', 'siamese-vgg', 'vgg', 'gcn'], default = 'inverted-vgg')
     parser.add_argument('--mask_lags', metavar =  'LG', type = int, nargs = '*',  default = [], help = 'mask inputs at specified lags')
     parser.add_argument('--mask_region', choices = ['off-off', 'on-off', 'off-on', 'on-on', 'on'], help = 'mask regions of input matrices')
     parser.add_argument('--shuffle_trajectory', metavar = 'FRAC', dest = 'shuffle', type = float, help = 'shuffle cells in local windows across trajectory')
@@ -113,6 +114,7 @@ if __name__ == '__main__':
     elif args.model_type == 'vgg-cnnc': net = VGG_CNNC(cfg = args.model_cfg, in_channels = 1)
     elif args.model_type == 'siamese-vgg': net = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors, max_lag = args.max_lag)
     elif args.model_type == 'vgg': net = VGG_CNNC(cfg = args.model_cfg, in_channels = nchan)
+    elif args.model_type == 'gcn': net = GCN(cfg = args.model_cfg, in_dimension = (nchan * args.nbins * args.nbins))
 
     # ---------------------------------------------------------
     # set up classifier from scratch or pre-trained checkpoint
