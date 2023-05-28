@@ -44,7 +44,7 @@ class GCN(nn.Module):
         pe += np.linspace(0, 1, pe.shape[2])[None, None, :]
         _, yy, _ = np.indices(pe.shape)
         pe += (yy - (x.size(-1) / 2)) / (x.size(-1) / 2)
-        pe = torch.tensor(pe, device = torch.cuda.current_device())
+        pe = torch.tensor(pe, dtype = torch.long, device = torch.cuda.current_device())
         for i in range(x.size(0)):
             xi = torch.flatten(x[i, ...] + pe)
             xi = torch.tile(xi, (edge_index.size(1), 1))
