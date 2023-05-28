@@ -23,7 +23,7 @@ class GCN(nn.Module):
                 x: torch.Tensor,
                 # edge_index: torch.Tensor
                 ) -> torch.Tensor:
-        out = torch.zeros(x.size(0))
+        out = torch.zeros(x.size(0), device = torch.current_device())
         x = torch.flatten(x, start_dim = 1)
         edge_index = torch.tensor([[0, 0, 1, 1, 2, 2],
                                    [1, 2, 0, 2, 0, 1]],
