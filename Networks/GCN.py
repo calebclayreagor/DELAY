@@ -4,7 +4,6 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.nn import Sequential
 from typing import List
 from typing import TypeVar
-import numpy as np
 
 Self = TypeVar('Self', bound = 'GCN')
 
@@ -36,17 +35,8 @@ class GCN(nn.Module):
                                     16, 18,  8, 15, 17,  5, 16, 18, 15, 17, 25, 26,  5, 14, 12, 22,
                                     23, 21,  7, 11, 21,  3, 18, 18]], 
                                    dtype = torch.long, device = torch.cuda.current_device())
-        pe = np.zeros((x.size(1), x.size(2), x.size(3)))
-        pe += (np.sin(np.linspace(0, 3 * np.pi, pe.shape[0]))[:, None, None] + 1) / 2
-        pe += (np.sin(np.linspace(0, 3 * np.pi, pe.shape[1]))[None, :, None] + 1) / 2
-        pe += (np.sin(np.linspace(0, 3 * np.pi, pe.shape[2]))[None, None, :] + 1) / 2
-        pe += np.linspace(0, 1, pe.shape[1])[None, :, None]
-        pe += np.linspace(0, 1, pe.shape[2])[None, None, :]
-        _, yy, _ = np.indices(pe.shape)
-        pe += (yy - (x.size(-1) / 2)) / (x.size(-1) / 2)
-        pe = torch.tensor(pe, dtype = torch.long, device = torch.cuda.current_device())
         for i in range(x.size(0)):
-            xi = torch.flatten(x[i, ...] + pe)
+            xi = torch.flatten(x[i, ...])
             xi = torch.tile(xi, (edge_index.size(1), 1))
             xi = self.features(xi, edge_index)
             out[i] = self.classifier(xi)[0]
