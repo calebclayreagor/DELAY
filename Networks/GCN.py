@@ -39,7 +39,8 @@ class GCN(nn.Module):
         for i in range(x.size(0)):
             xi = x[i, ...]
             # loop over single cells
-            for j in range(x.size(-1)):
+            # for j in range(x.size(-1)):
+            for j in range(100):
                 if j == 0: xij_target = torch.zeros(1, x.size(1), device = torch.cuda.current_device())
                 else: xij_target = xij[0].reshape(1, -1)
                 xij = torch.flatten(xi[..., j])
