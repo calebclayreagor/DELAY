@@ -41,7 +41,7 @@ class GCN(nn.Module):
             # loop over single cells
             for j in range(x.size(-1)):
                 if j == 0: xij_target = torch.zeros(x.size(1), 1, device = torch.cuda.current_device())
-                else: xij_target = xij[0].reshape(-1, 1)
+                else: xij_target = xij[0].reshape(1, -1)
                 xij = torch.flatten(xi[..., j])
                 xij = torch.tile(xij, (edge_index.size(1) - 1, 1))
                 xij = torch.concat((xij_target, xij), dim = 0)
