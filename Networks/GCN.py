@@ -35,11 +35,18 @@ class GCN(nn.Module):
                                     16, 18,  8, 15, 17,  5, 16, 18, 15, 17, 25, 26,  5, 14, 12, 22,
                                     23, 21,  7, 11, 21,  3, 18, 18]], 
                                    dtype = torch.long, device = torch.cuda.current_device())
+        # loop over examples
         for i in range(x.size(0)):
-            xi = torch.flatten(x[i, ...])
-            xi = torch.tile(xi, (edge_index.size(1), 1))
-            xi = self.features(xi, edge_index)
-            out[i] = self.classifier(xi)[0]
+            xi = x[i, ...]
+            # loop over single cells
+            for j in range(x.size(-1)):
+                if j == 0: xij_target = torch.zeros(x.size(1), 1, device = torch.cuda.current_device())
+                else: xij_target = xij[0].reshape(-1, 1)
+                xij = torch.flatten(xi[..., j])
+                xij = torch.tile(xij, (edge_index.size(1) - 1, 1))
+                xij = torch.concat((xij_target, xij), dim = 0)
+                xij = self.features(xij, edge_index)
+            out[i] = self.classifier(xij)[0]
         return out
 
     # def _initialize_weights(self: Self) -> None:
