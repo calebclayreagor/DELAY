@@ -4,6 +4,7 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.nn import Sequential
 from typing import List
 from typing import TypeVar
+import numpy as np
 
 Self = TypeVar('Self', bound = 'GCN')
 
@@ -37,10 +38,10 @@ class GCN(nn.Module):
                                    dtype = torch.long, device = torch.cuda.current_device())
         # loop over examples
         for i in range(x.size(0)):
-            xi = x[i, ...]
+            ii = np.random.choice(x.size(-1), 10, replace = False)
+            xi = x[i, ..., ii]
             # loop over single cells
-            # for j in range(x.size(-1)):
-            for j in range(100):
+            for j in range(xi.size(-1)):
                 if j == 0: xij_target = torch.zeros(1, x.size(1), device = torch.cuda.current_device())
                 else: xij_target = xij[0].reshape(1, -1)
                 xij = torch.flatten(xi[..., j])
