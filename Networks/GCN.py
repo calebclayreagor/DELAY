@@ -39,14 +39,16 @@ class GCN(nn.Module):
         # loop over examples
         n = (edge_index.size(1) - 1)
         for i in range(x.size(0)):
-            ii = np.random.choice(x.size(-1), 10 * n, replace = False)
+            ii = np.random.choice(x.size(-1), n * 10, replace = False)
             xi = x[i, ..., ii]
             # loop over single cells
             for j in range(0, xi.size(-1) + 1, n):
-                if j == 0: xij_target = torch.zeros(1, x.size(1), device = torch.cuda.current_device())
-                else: xij_target = xij[0].reshape(1, -1)
-                xij = torch.squeeze(xi[..., j:(j + n)]).T
-                xij = torch.concat((xij_target, xij), dim = 0)
+                if j == 0:
+                    xij0 = torch.zeros(1, xi.size(0), device = torch.cuda.current_device())
+                    xij = torch.squeeze(xi[..., j:(j + n)]).T
+                    xij = torch.concat((xij0, xij), dim = 0)
+                else: 
+                    xij[1:] += torch.squeeze(xi[..., j:(j + n)]).T
                 xij = self.features(xij, edge_index)
             out[i] = self.classifier(xij)[0]
         return out
