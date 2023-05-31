@@ -38,7 +38,7 @@ class GCN(nn.Module):
                                    dtype = torch.long, device = torch.cuda.current_device())
         ## CURRENTLY, USING EDGES INSTEAD OF NODES (?)
         # loop over examples
-        n = edge_index.max(None)
+        n = edge_index.max()
         for i in range(x.size(0)):
             try:
                 ii = np.random.choice(x.size(-1), n * 10, replace = False)
