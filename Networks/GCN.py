@@ -47,6 +47,7 @@ class GCN(nn.Module):
                     xij0 = torch.zeros(1, xi.size(0), device = torch.cuda.current_device())
                 else:
                     xij0 = xij[0].reshape(1, -1)
+                    xij1 = xij[1:, :] + xij1
                 xij = torch.concat((xij0, xij1), dim = 0)
                 xij = self.features(xij, edge_index)
             out[i] = self.classifier(xij)[0]
