@@ -4,7 +4,7 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.nn import Sequential
 from typing import List
 from typing import TypeVar
-import numpy as np
+import torch.nn.functional as F
 
 Self = TypeVar('Self', bound = 'GCN')
 
@@ -16,7 +16,8 @@ class GCN(nn.Module):
                  in_dimension: int,
                  ) -> Self:
         super(GCN, self).__init__()
-        self.features = self.make_layers(cfg, in_dimension)
+        self.embedding = nn.Linear(1100, 100)
+        self.features = self.make_layers(cfg, 100 * 6)
         self.classifier = nn.Linear(cfg[-1], 1)
         # self._initialize_weights()
 
@@ -37,20 +38,16 @@ class GCN(nn.Module):
                                     23, 21, 7, 11, 21, 3, 18, 18]], 
                                    dtype = torch.long, device = torch.cuda.current_device())
         # loop over examples
-        n = 26 #edge_index.max()
         for i in range(x.size(0)):
             xi = x[i, ...]
-            # loop over single cells
-            for j in range(0, xi.size(-1) - n, n):
-                xij1 = torch.squeeze(xi[..., j:(j + n)]).T
-                if j == 0:
-                    xij0 = torch.zeros(1, xi.size(0), device = torch.cuda.current_device())
-                else:
-                    xij0 = xij[0].reshape(1, -1)
-                    xij1 = xij[1:, :] + xij1
-                xij = torch.concat((xij0, xij1), dim = 0)
-                xij = self.features(xij, edge_index)
-            out[i] = self.classifier(xij)[0]
+            for j in range(xi.size(0)):
+                xij = torch.squeeze(xi[j, ...]).reshape(1, -1)
+                xij = F.pad(xij, (0, (1100 - xij.size())))
+                if j == 0: v = self.embedding(xij)
+                else: v = torch.concat((v, self.embedding(xij)), -1)
+            xi = torch.tile(v, (27, 1))
+            xi = self.features(xi, edge_index)
+            out[i] = self.classifier(xi)[0]
         return out
 
     # def _initialize_weights(self: Self) -> None:
