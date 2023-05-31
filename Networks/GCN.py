@@ -48,6 +48,8 @@ class GCN(nn.Module):
                     xij = torch.squeeze(xi[..., j:(j + n)]).T
                 else:
                     xij0 = xij[0].reshape(1, -1)
+                    print(xij[1:, :].size())
+                    print(torch.squeeze(xi[..., j:(j + n)]).T.size())
                     xij = xij[1:, :] + torch.squeeze(xi[..., j:(j + n)]).T
                 xij = torch.concat((xij0, xij), dim = 0)
                 xij = self.features(xij, edge_index)
