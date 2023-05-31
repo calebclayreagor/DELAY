@@ -37,15 +37,15 @@ class GCN(nn.Module):
                                     23, 21,  7, 11, 21,  3, 18, 18]], 
                                    dtype = torch.long, device = torch.cuda.current_device())
         # loop over examples
+        n = (edge_index.size(1) - 1)
         for i in range(x.size(0)):
-            ii = np.random.choice(x.size(-1), 10, replace = False)
+            ii = np.random.choice(x.size(-1), 10 * n, replace = False)
             xi = x[i, ..., ii]
             # loop over single cells
-            for j in range(xi.size(-1)):
+            for j in range(0, xi.size(-1) + 1, n):
                 if j == 0: xij_target = torch.zeros(1, x.size(1), device = torch.cuda.current_device())
                 else: xij_target = xij[0].reshape(1, -1)
-                xij = torch.flatten(xi[..., j])
-                xij = torch.tile(xij, (edge_index.size(1) - 1, 1))
+                xij = torch.squeeze(xi[..., j:(j + n)]).T
                 xij = torch.concat((xij_target, xij), dim = 0)
                 xij = self.features(xij, edge_index)
             out[i] = self.classifier(xij)[0]
