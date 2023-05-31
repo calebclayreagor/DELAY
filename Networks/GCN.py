@@ -36,15 +36,10 @@ class GCN(nn.Module):
                                     16, 18,  8, 15, 17,  5, 16, 18, 15, 17, 25, 26,  5, 14, 12, 22,
                                     23, 21, 7, 11, 21, 3, 18, 18]], 
                                    dtype = torch.long, device = torch.cuda.current_device())
-        ## CURRENTLY, USING EDGES INSTEAD OF NODES (?)
         # loop over examples
         n = 26 #edge_index.max()
         for i in range(x.size(0)):
-            try:
-                ii = np.random.choice(x.size(-1), n * 10, replace = False)
-            except:
-                ii = np.random.choice(x.size(-1), n * 10, replace = True)
-            xi = x[i, ..., ii]
+            xi = x[i, ...]
             # loop over single cells
             for j in range(0, xi.size(-1), n):
                 xij1 = torch.squeeze(xi[..., j:(j + n)]).T
@@ -52,7 +47,6 @@ class GCN(nn.Module):
                     xij0 = torch.zeros(1, xi.size(0), device = torch.cuda.current_device())
                 else:
                     xij0 = xij[0].reshape(1, -1)
-                    # xij1 = xij[1:, :] + xij1
                 xij = torch.concat((xij0, xij1), dim = 0)
                 xij = self.features(xij, edge_index)
             out[i] = self.classifier(xij)[0]
