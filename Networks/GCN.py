@@ -39,8 +39,7 @@ class GCN(nn.Module):
         # loop over examples
         n = 26 #edge_index.max()
         for i in range(x.size(0)):
-            ii = np.random.choice(x.size(-1), n * 4, replace = False)
-            xi = x[i, ..., ii]
+            xi = x[i, ...]
             # loop over single cells
             for j in range(0, xi.size(-1) - 1, n):
                 xij1 = torch.squeeze(xi[..., j:(j + n)]).T
