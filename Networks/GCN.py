@@ -34,7 +34,7 @@ class GCN(nn.Module):
                                     17, 19,  1,  5,  7,  8, 10,  2,  6, 23,  6,  9, 16,  8, 10, 13,
                                     6,  9, 11, 10, 12, 23, 11, 13, 21,  9, 12, 14, 13, 15, 20, 14,
                                     16, 18,  8, 15, 17,  5, 16, 18, 15, 17, 25, 26,  5, 14, 12, 22,
-                                    23, 21,  7, 11, 21,  3, 18, 18]], 
+                                    23, 21, 7, 11, 21,  3, 18, 18]], 
                                    dtype = torch.long, device = torch.cuda.current_device())
         ## CURRENTLY, USING EDGES INSTEAD OF NODES
         # loop over examples
@@ -52,7 +52,7 @@ class GCN(nn.Module):
                     xij0 = torch.zeros(1, xi.size(0), device = torch.cuda.current_device())
                 else:
                     xij0 = xij[0].reshape(1, -1)
-                    xij1 = xij[1:, :] + xij1
+                    # xij1 = xij[1:, :] + xij1
                 xij = torch.concat((xij0, xij1), dim = 0)
                 xij = self.features(xij, edge_index)
             out[i] = self.classifier(xij)[0]
