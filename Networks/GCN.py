@@ -41,7 +41,7 @@ class GCN(nn.Module):
         for i in range(x.size(0)):
             xi = x[i, ...]
             # loop over single cells
-            for j in range(0, xi.size(-1) - 1, n):
+            for j in range(0, xi.size(-1) - n, n):
                 xij1 = torch.squeeze(xi[..., j:(j + n)]).T
                 if j == 0:
                     xij0 = torch.zeros(1, xi.size(0), device = torch.cuda.current_device())
