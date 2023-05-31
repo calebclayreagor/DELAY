@@ -42,7 +42,7 @@ class GCN(nn.Module):
             xi = x[i, ...]
             for j in range(xi.size(0)):
                 xij = torch.squeeze(xi[j, ...]).reshape(1, -1)
-                xij = F.pad(xij, (0, (1100 - xij.size())))
+                xij = F.pad(xij, (0, (1100 - xij.size(-1))))
                 if j == 0: v = self.embedding(xij)
                 else: v = torch.concat((v, self.embedding(xij)), -1)
             xi = torch.tile(v, (27, 1))
