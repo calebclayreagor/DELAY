@@ -60,7 +60,7 @@ class GCN(nn.Module):
         layers: List[nn.Module] = []
         for v in cfg:
             if v == 'M':
-                layers.append(nn.MaxPool2d(kernel_size = 2, inplace = True))
+                layers.append(nn.MaxPool2d(kernel_size = 2))
             else:
                 layers.append((Conv2dMessage(in_channels, v), 'x, edge_index -> x'))
                 layers.append(nn.LeakyReLU(negative_slope = negative_slope, inplace = True))
