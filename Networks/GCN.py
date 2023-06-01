@@ -24,7 +24,6 @@ class GCN(nn.Module):
                 x: torch.Tensor,
                 # edge_index: torch.Tensor
                 ) -> torch.Tensor:
-        out = torch.zeros(x.size(0), 1, device = torch.cuda.current_device())
         edge_index = torch.tensor([[0,  1,  1,  1,  1,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,  5, 
                                     5,  5,  6,  6,  6,  6,  6,  7,  7,  7,  8,  8,  8,  9,  9,  9,
                                     10, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15,
@@ -39,11 +38,17 @@ class GCN(nn.Module):
         for i in range(x.size(0)):
             xi = x[i, ...]
             xi = torch.tile(xi, (27, 1, 1, 1))
-            xi = self.features(xi, edge_index)
-            xi = self.avgpool(xi)
-            xi = torch.flatten(xi, 1)
-            out[i] = self.classifier(xi)[0]
-        return out
+            if i == 0:
+                x_batch = xi
+                edge_index_batch = edge_index
+            else:
+                x_batch = torch.cat((x_batch, xi), dim = 0)
+                edge_index_batch = torch.cat((edge_index_batch, (27 * i) + edge_index_batch), dim = 1)
+        out = self.features(x_batch, edge_index_batch)
+        out = out[::27, ...]
+        out = self.avgpool(out)
+        out = torch.flatten(out, 1)
+        return self.classifier(out)
     
     def _initialize_weights(self: Self) -> None:
         for m in self.modules():
@@ -69,16 +74,14 @@ class Conv2dMessage(MessagePassing):
     def __init__(self, in_channels, out_channels):
         super().__init__(aggr = 'add', node_dim = 0)
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size = 3, padding = 1)
-        # self.bias = nn.Parameter(torch.Tensor(out_channels))
         self._initialize_weights()
 
     def _initialize_weights(self: Self) -> None:
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Parameter):
+            if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_uniform_(m.weight)
 
     def forward(self, x, edge_index):
         out = self.conv(x)
         out = self.propagate(edge_index, x = out)
-        # out += self.bias[None, :, None, None]
         return out
