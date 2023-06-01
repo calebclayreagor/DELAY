@@ -69,7 +69,7 @@ class Conv2dMessage(MessagePassing):
     def __init__(self, in_channels, out_channels):
         super().__init__(aggr = 'add', node_dim = 0)
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size = 3, padding = 1)
-        self.bias = nn.Parameter(torch.Tensor(out_channels))
+        # self.bias = nn.Parameter(torch.Tensor(out_channels))
         self._initialize_weights()
 
     def _initialize_weights(self: Self) -> None:
@@ -80,5 +80,5 @@ class Conv2dMessage(MessagePassing):
     def forward(self, x, edge_index):
         out = self.conv(x)
         out = self.propagate(edge_index, x = out)
-        out += self.bias[None, :, None, None]
+        # out += self.bias[None, :, None, None]
         return out
