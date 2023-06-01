@@ -44,6 +44,8 @@ class GCN(nn.Module):
             else:
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat((edge_index_batch, (27 * i) + edge_index_batch), dim = 1)
+        print(x_batch.size())
+        input(edge_index_batch.size())
         out = self.features(x_batch, edge_index_batch)
         out = out[::27, ...]
         out = self.avgpool(out)
