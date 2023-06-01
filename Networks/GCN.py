@@ -43,9 +43,7 @@ class GCN(nn.Module):
                 edge_index_batch = edge_index
             else:
                 x_batch = torch.cat((x_batch, xi), dim = 0)
-                edge_index_batch = torch.cat((edge_index_batch, (27 * i) + edge_index_batch), dim = 1)
-        print(x_batch.size())
-        input(edge_index_batch.max())
+                edge_index_batch = torch.cat((edge_index_batch, (27 * i) + edge_index), dim = 1)
         out = self.features(x_batch, edge_index_batch)
         out = out[::27, ...]
         out = self.avgpool(out)
@@ -85,6 +83,5 @@ class Conv2dMessage(MessagePassing):
 
     def forward(self, x, edge_index):
         out = self.conv(x)
-        input(out.size())
         out = self.propagate(edge_index, x = out)
         return out
