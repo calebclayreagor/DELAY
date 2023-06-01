@@ -41,8 +41,9 @@ class GCN(nn.Module):
             xi = x[i, ...]
             xi = torch.tile(xi, (27, 1, 1, 1))
             xi = self.features(xi, edge_index)
-            xi = self.avgpool(xi)
             input(xi.size())
+            xi = self.avgpool(xi)
+            xi = torch.flatten(xi, 1)
             out[i] = self.classifier(xi)[0]
         return out
     
