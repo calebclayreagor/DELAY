@@ -12,11 +12,13 @@ class GCN(nn.Module):
 
     def __init__(self: Self,
                  cfg: List[int],
-                 in_dimension: int,
+                 in_channels: int,
                  ) -> Self:
         super(GCN, self).__init__()
-        self.features = self.make_layers(cfg, in_dimension)
+        self.features = self.make_layers(cfg, in_channels)
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Linear(cfg[-1], 1)
+        self._initialize_weights()
 
     def forward(self: Self,
                 x: torch.Tensor,
@@ -39,37 +41,45 @@ class GCN(nn.Module):
             xi = x[i, ...]
             xi = torch.tile(xi, (27, 1, 1, 1))
             xi = self.features(xi, edge_index)
+            xi = self.avgpool(xi)
+            input(xi.size())
             out[i] = self.classifier(xi)[0]
         return out
+    
+    def _initialize_weights(self: Self) -> None:
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight)
 
     def make_layers(self: Self, 
                     cfg: List[int], 
-                    in_dimension: int
+                    in_channels: int,
+                    negative_slope: float = 0.2
                     ) -> Sequential:
         layers: List[nn.Module] = []
         for v in cfg:
-            layers.append((Conv2dMessage(in_dimension, v), 'x, edge_index -> x'))
-            layers.append(nn.LeakyReLU(negative_slope = 0.2, inplace = True))
-            in_dimension = v
+            if v == 'M':
+                layers.append(nn.MaxPool2d(kernel_size = 2, inplace = True))
+            else:
+                layers.append((Conv2dMessage(in_channels, v), 'x, edge_index -> x'))
+                layers.append(nn.LeakyReLU(negative_slope = negative_slope, inplace = True))
+                in_channels = v
         return Sequential('x, edge_index', layers)
-    
 
 class Conv2dMessage(MessagePassing):
     def __init__(self, in_channels, out_channels):
         super().__init__(aggr = 'add', node_dim = 0)
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size = 3, padding = 1)
-        # self.pool = nn.MaxPool2d(kernel_size = 2)
+        self.features = nn.Conv2d(in_channels, out_channels, kernel_size = 3, padding = 1)
         self.bias = nn.Parameter(torch.Tensor(out_channels))
-        self.reset_parameters()
+        self._initialize_weights()
 
-    def reset_parameters(self):
-        self.conv.reset_parameters()
-        self.bias.data.zero_()
+    def _initialize_weights(self: Self) -> None:
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Parameter):
+                nn.init.kaiming_uniform_(m.weight)
 
     def forward(self, x, edge_index):
-        out = self.conv(x)
+        out = self.features(x)
         out = self.propagate(edge_index, x = out)
-        input(out.size())
-        out += self.bias
-        # out = self.pool(out)
+        out += self.bias[None, :, None, None]
         return out
