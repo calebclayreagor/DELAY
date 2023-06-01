@@ -38,15 +38,9 @@ class GCN(nn.Module):
         for i in range(x.size(0)):
             xi = x[i, ...]
             xi = torch.tile(xi, (27, 1, 1, 1))
-            input(xi.size())
             xi = self.features(xi, edge_index)
             out[i] = self.classifier(xi)[0]
         return out
-
-    # def _initialize_weights(self: Self) -> None:
-    #     for m in self.modules():
-    #         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-    #             nn.init.kaiming_uniform_(m.weight)
 
     def make_layers(self: Self, 
                     cfg: List[int], 
@@ -55,7 +49,7 @@ class GCN(nn.Module):
         layers: List[nn.Module] = []
         for v in cfg:
             layers.append((Conv2dMessage(in_dimension, v), 'x, edge_index -> x'))
-            layers.append(nn.ReLU(inplace = True))
+            layers.append(nn.LeakyReLU(negative_slope = 0.2, inplace = True))
             in_dimension = v
         return Sequential('x, edge_index', layers)
     
@@ -64,7 +58,6 @@ class Conv2dMessage(MessagePassing):
     def __init__(self, in_channels, out_channels):
         super().__init__(aggr = 'add', node_dim = 0)
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size = 3, padding = 1)
-        # self.activ = nn.LeakyReLU(negative_slope = 0.2)
         # self.pool = nn.MaxPool2d(kernel_size = 2)
         self.bias = nn.Parameter(torch.Tensor(out_channels))
         self.reset_parameters()
@@ -75,8 +68,8 @@ class Conv2dMessage(MessagePassing):
 
     def forward(self, x, edge_index):
         out = self.conv(x)
-        # out = self.activ(out)
         out = self.propagate(edge_index, x = out)
+        input(out.size())
         out += self.bias
         # out = self.pool(out)
         return out
