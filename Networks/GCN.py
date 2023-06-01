@@ -36,12 +36,10 @@ class GCN(nn.Module):
                                     16, 18,  8, 15, 17,  5, 16, 18, 15, 17, 25, 26,  5, 14, 12, 22,
                                     23, 21, 7, 11, 21, 3, 18, 18]], 
                                    dtype = torch.long, device = torch.cuda.current_device())
-        # loop over examples
         for i in range(x.size(0)):
             xi = x[i, ...]
             xi = torch.tile(xi, (27, 1, 1, 1))
             xi = self.features(xi, edge_index)
-            input(xi.size())
             xi = self.avgpool(xi)
             xi = torch.flatten(xi, 1)
             out[i] = self.classifier(xi)[0]
@@ -70,7 +68,7 @@ class GCN(nn.Module):
 class Conv2dMessage(MessagePassing):
     def __init__(self, in_channels, out_channels):
         super().__init__(aggr = 'add', node_dim = 0)
-        self.features = nn.Conv2d(in_channels, out_channels, kernel_size = 3, padding = 1)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size = 3, padding = 1)
         self.bias = nn.Parameter(torch.Tensor(out_channels))
         self._initialize_weights()
 
@@ -80,7 +78,7 @@ class Conv2dMessage(MessagePassing):
                 nn.init.kaiming_uniform_(m.weight)
 
     def forward(self, x, edge_index):
-        out = self.features(x)
+        out = self.conv(x)
         out = self.propagate(edge_index, x = out)
         out += self.bias[None, :, None, None]
         return out
