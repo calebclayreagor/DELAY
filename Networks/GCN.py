@@ -21,7 +21,7 @@ class GCN(nn.Module):
         for l in cfg:
             if l == 'M':
                 dim /= 2
-        self.classifier = nn.Sequential(nn.Linear((dim ** 2) * cfg[-2], 1024),
+        self.classifier = nn.Sequential(nn.Linear(int((dim ** 2) * cfg[-2]), 1024),
                                         nn.Linear(1024, 1024), nn.Linear(1024, 1))                         
         self._initialize_weights()
 
