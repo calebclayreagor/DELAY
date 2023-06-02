@@ -16,8 +16,13 @@ class GCN(nn.Module):
                  ) -> Self:
         super(GCN, self).__init__()
         self.features = self.make_layers(cfg, in_channels)
-        self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.classifier = nn.Linear(cfg[-1], 1)
+        # self.avgpool = nn.AdaptiveAvgPool2d(1)
+        dim = 32
+        for l in cfg:
+            if l == 'M':
+                dim /= 2
+        self.classifier = nn.Sequential([nn.Linear((dim ** 2) * cfg[-2], 1024),
+                                         nn.Linear(1024, 1024), nn.Linear(1024, 1)])                         
         self._initialize_weights()
 
     def forward(self: Self,
