@@ -51,7 +51,7 @@ class GCN(nn.Module):
                 edge_index_batch = torch.cat((edge_index_batch, (27 * i) + edge_index), dim = 1)
         out = self.features(x_batch, edge_index_batch)
         out = out[::27, ...]
-        out = self.avgpool(out)
+        # out = self.avgpool(out)
         out = torch.flatten(out, 1)
         return self.classifier(out)
     
