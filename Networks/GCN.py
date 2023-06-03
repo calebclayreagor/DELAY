@@ -36,12 +36,12 @@ class GCN(nn.Module):
                                     23, 21, 7, 11, 21, 3, 18, 18]], 
                                    dtype = torch.long, device = torch.cuda.current_device())
         for i in range(x.size(0)):
-            xi = torch.unsqueeze(x[i, ...], 0)  # [1, nchan, nbins, nbins]
+            xi = x[i, ...]                      # [nchan, nbins, nbins]
             id = np.indices(xi.size())          # [3, nchan, nbins, nbins]
-            input(id.shape)
             id = id.astype(np.float64)
             id[1:, ...] /= id.shape[-1]
             id = torch.tensor(id, device = torch.cuda.current_device())
+            xi = torch.unsqueeze(xi, 0)         # [1, nchan, nbins, nbins]
             xi = torch.cat((xi, id), dim = 0)   # [4, nchan, nbins, nbins]
             xi = torch.flatten(xi)              # [4 * nchan * nbins * nbins]
             xi = torch.unsqueeze(xi, 0)         # [1, 4 * nchan * nbins * nbins]
