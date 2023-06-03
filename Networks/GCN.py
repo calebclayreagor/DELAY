@@ -38,7 +38,7 @@ class GCN(nn.Module):
         for i in range(x.size(0)):
             xi = torch.unsqueeze(x[i, ...], 0)  # [1, nchan, nbins, nbins]
             id = np.indices(xi.size())          # [3, nchan, nbins, nbins]
-            id[1:, ...] /= id.shape[-1].astype(np.float64)
+            id[1:, ...] /= float(id.shape[-1])
             id = torch.tensor(id, device = torch.cuda.current_device())
             xi = torch.cat((xi, id), dim = 0)   # [4, nchan, nbins, nbins]
             xi = torch.flatten(xi)              # [4 * nchan * nbins * nbins]
