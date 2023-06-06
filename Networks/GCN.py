@@ -18,18 +18,21 @@ class GCN(nn.Module):
                  in_dimensions: int,
                  ) -> Self:
         super(GCN, self).__init__()
-
-        input(graph)
-
         G = nx.from_numpy_array(graph, create_using = nx.DiGraph)
         n_conv = 0
         for node in list(G.nodes()):
             d = nx.shortest_path_length(G, node, target = 0, weight = None)
             if d > n_conv: n_conv = d
-        input(n_conv)
+        cfg = [cfg[0]] * n_conv
+        edge_index = np.array(np.where(graph > 0))
+        edge_weight = graph[edge_index[0], edge_index[1]]
+        self.edge_index = torch.tensor(edge_index, dtype = torch.long)
+        self.edge_weight = torch.tensor(edge_weight, dtype = torch.long)
+
+        input(self.edge_index)
+        input(self.edge_weight)
 
         self.features = self.make_layers(cfg, in_dimensions)
-        self.edge_index = torch.tensor(np.array(np.where(graph > 0)), dtype = torch.long)
         self.classifier = nn.Linear(cfg[-1], 1)                   
         # self._initialize_weights()
 
