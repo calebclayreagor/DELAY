@@ -27,9 +27,8 @@ class GCN(nn.Module):
         edge_index = np.array(np.where(graph > 0))
         edge_weight = graph[edge_index[0], edge_index[1]]
         self.edge_index = torch.tensor(edge_index, dtype = torch.long)
-        self.edge_weight = torch.tensor(edge_weight, dtype = torch.long)
+        self.edge_weight = torch.tensor(edge_weight, dtype = torch.double)
 
-        input(self.edge_index)
         input(self.edge_weight)
 
         self.features = self.make_layers(cfg, in_dimensions)
