@@ -34,6 +34,8 @@ class GCN(nn.Module):
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         n_nodes = (self.edge_index.max() + 1)
+        edge_index = self.edge_index.to(torch.cuda.current_device())
+        edge_weight = self.edge_weight.to(torch.cuda.current_device())
         for i in range(x.size(0)):
             xi = x[i, ...]                          # [nchan, nbins, nbins]     (torch.float32)
             id = np.indices(xi.size())              # [3, nchan, nbins, nbins]
@@ -50,12 +52,12 @@ class GCN(nn.Module):
             xi = torch.cat((xi0, xi), dim = 0)      # [n_nodes, 4 * nchan * nbins * nbins]
             if i == 0:
                 x_batch = xi
-                edge_index_batch = self.edge_index
-                edge_weight_batch = self.edge_weight
+                edge_index_batch = edge_index
+                edge_weight_batch = edge_weight
             else:
                 x_batch = torch.cat((x_batch, xi), dim = 0)
-                edge_index_batch = torch.cat((edge_index_batch, (n_nodes * i) + self.edge_index), dim = 1)
-                edge_weight_batch = torch.cat((edge_weight_batch, self.edge_weight), dim = 0)
+                edge_index_batch = torch.cat((edge_index_batch, (n_nodes * i) + edge_index), dim = 1)
+                edge_weight_batch = torch.cat((edge_weight_batch, edge_weight), dim = 0)
         out = self.features(x_batch, edge_index_batch, edge_weight_batch)
         out = out[::n_nodes, ...]                   # [batch_size, cfg[-1]]
         return self.classifier(out)
