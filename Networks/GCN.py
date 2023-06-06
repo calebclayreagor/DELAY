@@ -28,27 +28,19 @@ class GCN(nn.Module):
         edge_weight = graph[edge_index[0], edge_index[1]]
         self.edge_index = torch.tensor(edge_index, dtype = torch.long)
         self.edge_weight = torch.tensor(edge_weight, dtype = torch.double)
-
-        input(self.edge_weight)
-
         self.features = self.make_layers(cfg, in_dimensions)
-        self.classifier = nn.Linear(cfg[-1], 1)                   
-        # self._initialize_weights()
+        self.classifier = nn.Linear(cfg[-1], 1)                 
+        self._initialize_weights()
+
+    def _initialize_weights(self: Self) -> None:
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight)
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
-        # edge_index = torch.tensor([[0,  1,  1,  1,  1,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,  5, 
-        #                             5,  5,  6,  6,  6,  6,  6,  7,  7,  7,  8,  8,  8,  9,  9,  9,
-        #                             10, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15,
-        #                             15, 15, 16, 16, 16, 17, 17, 17, 18, 18, 18, 18, 19, 20, 21, 21,
-        #                             21, 22, 23, 23, 23, 24, 25, 26],
-        #                            [1,  0,  2,  4,  6,  1,  3,  7,  2,  4, 24,  1,  3,  5,  4,  6,
-        #                             17, 19,  1,  5,  7,  8, 10,  2,  6, 23,  6,  9, 16,  8, 10, 13,
-        #                             6,  9, 11, 10, 12, 23, 11, 13, 21,  9, 12, 14, 13, 15, 20, 14,
-        #                             16, 18,  8, 15, 17,  5, 16, 18, 15, 17, 25, 26,  5, 14, 12, 22,
-        #                             23, 21, 7, 11, 21, 3, 18, 18]], 
-        #                            dtype = torch.long, device = torch.cuda.current_device())
         for i in range(x.size(0)):
             xi = x[i, ...]                      # [nchan, nbins, nbins]
+            input(xi.dtype)
             id = np.indices(xi.size())          # [3, nchan, nbins, nbins]
             id = id.astype(np.float64)
             id[0, ...] /= id.shape[1]
@@ -68,20 +60,15 @@ class GCN(nn.Module):
         out = self.features(x_batch, edge_index_batch)
         out = out[::27, ...]                    # [batch_size, cfg[-1]]
         return self.classifier(out)
-    
-    # def _initialize_weights(self: Self) -> None:
-    #     for m in self.modules():
-    #         if isinstance(m, nn.Linear):
-    #             nn.init.kaiming_uniform_(m.weight)
 
-    def make_layers(self: Self, 
-                    cfg: List[int], 
+    def make_layers(self: Self,
+                    cfg: List[int],
                     in_dimensions: int,
                     negative_slope: float = 0.2
                     ) -> Sequential:
         layers: List[nn.Module] = []
         for v in cfg:
-            layers.append((GCNConv(in_dimensions, v, add_self_loops = False, normalize = False), 'x, edge_index -> x'))
+            layers.append((GCNConv(in_dimensions, v, add_self_loops = False, normalize = False), 'x, edge_index, edge_weight -> x'))
             layers.append(nn.LeakyReLU(negative_slope = negative_slope, inplace = True))
             in_dimensions = v
-        return Sequential('x, edge_index', layers)
+        return Sequential('x, edge_index, edge_weight', layers)
