@@ -113,7 +113,7 @@ if __name__ == '__main__':
     # --------------------------------------------------------
     args.model_cfg = [int(x) if x != 'M' else x for x in args.model_cfg]
     nchan = (3 + 2 * args.neighbors) * (1 + args.max_lag)
-    if args.model_type == 'gcn': graph = np.loadtxt(args.graph, delimiter = ',', dtype = np.float64)
+    if args.model_type == 'gcn': graph = np.loadtxt(args.graph, delimiter = ',', dtype = np.int64)
     if args.model_type == 'inverted-vgg': net = VGG(cfg = args.model_cfg, in_channels = nchan)
     elif args.model_type == 'vgg-cnnc': net = VGG_CNNC(cfg = args.model_cfg, in_channels = 1)
     elif args.model_type == 'siamese-vgg': net = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors, max_lag = args.max_lag)

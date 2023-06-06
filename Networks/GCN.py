@@ -24,19 +24,15 @@ class GCN(nn.Module):
             d = nx.shortest_path_length(G, node, target = 0, weight = None)
             if d > n_conv: n_conv = d
         cfg = [cfg[0]] * n_conv
-        edge_index = np.array(np.where(graph > 0))
-        edge_weight = graph[edge_index[0], edge_index[1]]
+        edge_index = np.array(np.where(graph))
         self.edge_index = torch.tensor(edge_index, dtype = torch.long)
-        self.edge_weight = torch.tensor(edge_weight, dtype = torch.float)
         self.features = self.make_layers(cfg, in_dimensions)
-        self.classifier = nn.Linear(cfg[-1], 1)                 
+        self.classifier = nn.Linear(cfg[-1], 1)
         self._initialize_weights()
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         n_nodes = (self.edge_index.max() + 1)
         edge_index = self.edge_index.to(torch.cuda.current_device())
-        # edge_weight = self.edge_weight.to(torch.cuda.current_device())
-        edge_weight = torch.ones(self.edge_weight.size(), dtype = torch.float, device = torch.cuda.current_device())
         for i in range(x.size(0)):
             xi = x[i, ...]                          # [nchan, nbins, nbins]     (torch.float32)
             id = np.indices(xi.size())              # [3, nchan, nbins, nbins]
@@ -54,12 +50,10 @@ class GCN(nn.Module):
             if i == 0:
                 x_batch = xi
                 edge_index_batch = edge_index
-                edge_weight_batch = edge_weight
             else:
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat((edge_index_batch, (n_nodes * i) + edge_index), dim = 1)
-                edge_weight_batch = torch.cat((edge_weight_batch, edge_weight), dim = 0)
-        out = self.features(x_batch, edge_index_batch, edge_weight_batch)
+        out = self.features(x_batch, edge_index_batch)
         out = out[::n_nodes, ...]                   # [batch_size, cfg[-1]]
         return self.classifier(out)
     
@@ -75,7 +69,7 @@ class GCN(nn.Module):
                     ) -> Sequential:
         layers: List[nn.Module] = []
         for v in cfg:
-            layers.append((GCNConv(in_dimensions, v, add_self_loops = False, normalize = False), 'x, edge_index, edge_weight -> x'))
+            layers.append((GCNConv(in_dimensions, v, normalize = False), 'x, edge_index -> x')) ## SELF_LOOPS == TRUE
             layers.append(nn.LeakyReLU(negative_slope = negative_slope, inplace = True))
             in_dimensions = v
-        return Sequential('x, edge_index, edge_weight', layers)
+        return Sequential('x, edge_index', layers)
