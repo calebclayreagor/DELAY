@@ -38,32 +38,41 @@ class GCN(nn.Module):
                 nn.init.kaiming_uniform_(m.weight)
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
+        n_nodes = (self.edge_index.max() + 1)
         for i in range(x.size(0)):
-            xi = x[i, ...]                                  # [nchan, nbins, nbins]     (torch.float32)
-            id = np.indices(xi.size())                      # [3, nchan, nbins, nbins]
+            xi = x[i, ...]                          # [nchan, nbins, nbins]     (torch.float32)
+            id = np.indices(xi.size())              # [3, nchan, nbins, nbins]
             id = id.astype(np.float32)
             id[0, ...] /= id.shape[1]
             id[1:, ...] /= id.shape[-1]
             id = torch.tensor(id, dtype = torch.float, device = torch.cuda.current_device())
-            xi = torch.unsqueeze(xi, 0)                     # [1, nchan, nbins, nbins]
-            xi = torch.cat((xi, id), dim = 0)               # [4, nchan, nbins, nbins]
-            xi = torch.flatten(xi)                          # [4 * nchan * nbins * nbins]
-            xi = torch.unsqueeze(xi, 0)                     # [1, 4 * nchan * nbins * nbins]
+            xi = torch.unsqueeze(xi, 0)             # [1, nchan, nbins, nbins]
+            xi = torch.cat((xi, id), dim = 0)       # [4, nchan, nbins, nbins]
+            xi = torch.flatten(xi)                  # [4 * nchan * nbins * nbins]
+            xi = torch.unsqueeze(xi, 0)             # [1, 4 * nchan * nbins * nbins]
             xi0 = torch.zeros(xi.size(), dtype = torch.float, device = torch.cuda.current_device())
-            xi = torch.tile(xi, (self.edge_index.max(), 1)) # [n_nodes - 1, 4 * nchan * nbins * nbins]
-            xi = torch.cat((xi0, xi), dim = 0)              # [n_nodes, 4 * nchan * nbins * nbins]
-
-            print(xi.size())
-            input(xi)
-
+            xi = torch.tile(xi, (n_nodes - 1, 1))   # [n_nodes - 1, 4 * nchan * nbins * nbins]
+            xi = torch.cat((xi0, xi), dim = 0)      # [n_nodes, 4 * nchan * nbins * nbins]
             if i == 0:
                 x_batch = xi
                 edge_index_batch = self.edge_index
+                edge_weight_batch = self.edge_weight
             else:
                 x_batch = torch.cat((x_batch, xi), dim = 0)
-                edge_index_batch = torch.cat((edge_index_batch, (27 * i) + self.edge_index), dim = 1)
-        out = self.features(x_batch, edge_index_batch)
-        out = out[::27, ...]                    # [batch_size, cfg[-1]]
+                edge_index_batch = torch.cat((edge_index_batch, (n_nodes * i) + self.edge_index), dim = 1)
+                edge_weight_batch = torch.cat((edge_weight_batch, self.edge_weight), dim = 0)
+
+        print(x_batch.size())
+        input(x_batch)
+
+        print(edge_index_batch.size())
+        input(edge_index_batch)
+
+        print(edge_weight_batch.size())
+        input(edge_weight_batch)
+
+        out = self.features(x_batch, edge_index_batch, edge_weight_batch)
+        out = out[::n_nodes, ...]                   # [batch_size, cfg[-1]]
         return self.classifier(out)
 
     def make_layers(self: Self,
