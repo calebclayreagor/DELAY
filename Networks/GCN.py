@@ -32,11 +32,6 @@ class GCN(nn.Module):
         self.classifier = nn.Linear(cfg[-1], 1)                 
         self._initialize_weights()
 
-    def _initialize_weights(self: Self) -> None:
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.kaiming_uniform_(m.weight)
-
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         n_nodes = (self.edge_index.max() + 1)
         for i in range(x.size(0)):
@@ -61,13 +56,14 @@ class GCN(nn.Module):
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat((edge_index_batch, (n_nodes * i) + self.edge_index), dim = 1)
                 edge_weight_batch = torch.cat((edge_weight_batch, self.edge_weight), dim = 0)
-
-        print(edge_weight_batch.size())
-        input(edge_weight_batch)
-
         out = self.features(x_batch, edge_index_batch, edge_weight_batch)
         out = out[::n_nodes, ...]                   # [batch_size, cfg[-1]]
         return self.classifier(out)
+    
+    def _initialize_weights(self: Self) -> None:
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight)
 
     def make_layers(self: Self,
                     cfg: List[int],
