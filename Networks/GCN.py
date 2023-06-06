@@ -69,7 +69,7 @@ class GCN(nn.Module):
                     ) -> Sequential:
         layers: List[nn.Module] = []
         for v in cfg:
-            layers.append((GCNConv(in_dimensions, v, normalize = False), 'x, edge_index -> x')) ## SELF_LOOPS == TRUE
+            layers.append((GCNConv(in_dimensions, v, add_self_loops = False, normalize = False), 'x, edge_index -> x'))
             layers.append(nn.LeakyReLU(negative_slope = negative_slope, inplace = True))
             in_dimensions = v
         return Sequential('x, edge_index', layers)
