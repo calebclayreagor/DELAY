@@ -27,7 +27,7 @@ class GCN(nn.Module):
         edge_index = np.array(np.where(graph > 0))
         edge_weight = graph[edge_index[0], edge_index[1]]
         self.edge_index = torch.tensor(edge_index, dtype = torch.long)
-        self.edge_weight = torch.tensor(edge_weight, dtype = torch.double)
+        self.edge_weight = torch.tensor(edge_weight, dtype = torch.float)
         self.features = self.make_layers(cfg, in_dimensions)
         self.classifier = nn.Linear(cfg[-1], 1)                 
         self._initialize_weights()
@@ -61,12 +61,6 @@ class GCN(nn.Module):
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat((edge_index_batch, (n_nodes * i) + self.edge_index), dim = 1)
                 edge_weight_batch = torch.cat((edge_weight_batch, self.edge_weight), dim = 0)
-
-        print(x_batch.size())
-        input(x_batch)
-
-        print(edge_index_batch.size())
-        input(edge_index_batch)
 
         print(edge_weight_batch.size())
         input(edge_weight_batch)
