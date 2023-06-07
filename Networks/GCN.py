@@ -19,15 +19,18 @@ class GCN(nn.Module):
                  ) -> Self:
         super(GCN, self).__init__()
         G = nx.from_numpy_array(graph, create_using = nx.DiGraph)
-        n_conv = 0
+        self.n_conv = 0
         for node in list(G.nodes()):
             d = nx.shortest_path_length(G, node, target = 0, weight = None)
-            if d > n_conv: n_conv = d
-        cfg = [cfg[0]] * n_conv
+            if d > self.n_conv: self.n_conv = d
+        self.n_conv -= 1
+        cfg = [cfg[0]]
+        # cfg = [cfg[0]] * n_conv
         edge_index = np.array(np.where(graph))
         self.edge_index = torch.tensor(edge_index, dtype = torch.long)
-        self.features = self.make_layers(cfg, in_dimensions)
-        self.classifier = nn.Linear(cfg[-1], 1)
+        self.embedding = self.make_layers(cfg, in_dimensions)  # in_dimensions -> cfg[0]
+        self.features = self.make_layers(cfg, cfg[0])          # cfg[0] -> cfg[0]
+        self.classifier = nn.Linear(cfg[-1], 1)                # cfg[0] -> 1
         self._initialize_weights()
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
@@ -51,7 +54,9 @@ class GCN(nn.Module):
             else:
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat((edge_index_batch, (n_nodes * i) + edge_index), dim = 1)
-        out = self.features(x_batch, edge_index_batch)
+        out = self.embedding(x_batch, edge_index_batch)
+        for _ in self.n_conv:
+            out = self.features(out, edge_index_batch)
         out = out[::n_nodes, ...]                   # [batch_size, cfg[-1]]
         return self.classifier(out)
     
