@@ -38,10 +38,8 @@ class Classifier(pl.LightningModule):
         self.val_auprc = nn.ModuleList([AveragePrecision(task = 'binary') for _ in self.valnames])
         self.val_auroc = nn.ModuleList([AUROC(task = 'binary') for _ in self.valnames])
 
-    def configure_optimizers(self: Self) -> Tuple[List]:
-        optimizer = torch.optim.SGD(self.parameters(), lr = self.hparams.learning_rate)
-        scheduler = ReduceLROnPlateau(optimizer, threshold = .01)
-        return [optimizer], [{'scheduler' : scheduler, 'monitor' : 'train_loss_epoch', 'interval' : 'epoch'}]
+    def configure_optimizers(self: Self) -> torch.optim.SGD:
+        return torch.optim.SGD(self.parameters(), lr = self.hparams.learning_rate)
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         return self.backbone(x)
