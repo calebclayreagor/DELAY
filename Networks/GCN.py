@@ -38,16 +38,16 @@ class GCN(nn.Module):
         edge_index = self.edge_index.to(torch.cuda.current_device())
         for i in range(x.size(0)):
             xi = x[i, ...]                          # [nchan, nbins, nbins]     (torch.float32)
-            id = np.indices(xi.size())              # [3, nchan, nbins, nbins]
-            id = id.astype(np.float32)
-            id[0, ...] /= id.shape[1]
-            id[1:, ...] /= id.shape[-1]
-            id = torch.tensor(id, dtype = torch.float, device = torch.cuda.current_device())
-            xi = torch.unsqueeze(xi, 0)             # [1, nchan, nbins, nbins]
-            xi = torch.cat((xi, id), dim = 0)       # [4, nchan, nbins, nbins]
-            xi = torch.flatten(xi)                  # [4 * nchan * nbins * nbins]
-            xi = torch.unsqueeze(xi, 0)             # [1, 4 * nchan * nbins * nbins]
-            xi = torch.tile(xi, (n_nodes, 1))       # [n_nodes, 4 * nchan * nbins * nbins]
+            # id = np.indices(xi.size())              # [3, nchan, nbins, nbins]
+            # id = id.astype(np.float32)
+            # id[0, ...] /= id.shape[1]
+            # id[1:, ...] /= id.shape[-1]
+            # id = torch.tensor(id, dtype = torch.float, device = torch.cuda.current_device())
+            # xi = torch.unsqueeze(xi, 0)             # [1, nchan, nbins, nbins]
+            # xi = torch.cat((xi, id), dim = 0)       # [4, nchan, nbins, nbins]
+            xi = torch.flatten(xi)                  # [nchan * nbins * nbins]
+            xi = torch.unsqueeze(xi, 0)             # [1, nchan * nbins * nbins]
+            xi = torch.tile(xi, (n_nodes, 1))       # [n_nodes, nchan * nbins * nbins]
             if i == 0:
                 x_batch = xi
                 edge_index_batch = edge_index
