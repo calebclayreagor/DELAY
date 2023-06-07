@@ -55,7 +55,7 @@ class GCN(nn.Module):
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat((edge_index_batch, (n_nodes * i) + edge_index), dim = 1)
         out = self.embedding(x_batch, edge_index_batch)
-        for _ in self.n_conv:
+        for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
         out = out[::n_nodes, ...]                   # [batch_size, cfg[-1]]
         return self.classifier(out)
