@@ -119,7 +119,7 @@ if __name__ == '__main__':
     elif args.model_type == 'vgg-cnnc': net = VGG_CNNC(cfg = args.model_cfg, in_channels = 1)
     elif args.model_type == 'siamese-vgg': net = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors, max_lag = args.max_lag)
     elif args.model_type == 'vgg': net = VGG_CNNC(cfg = args.model_cfg, in_channels = nchan)
-    elif args.model_type == 'gcn': net = GCN(graph = graph, cfg = args.model_cfg, in_dimensions = (4 * nchan * args.nbins * args.nbins))
+    elif args.model_type == 'gcn': net = GCN(graph = graph, cfg = args.model_cfg, in_dimensions = (nchan * args.nbins * args.nbins))
 
     # ---------------------------------------------------------
     # set up classifier from scratch or pre-trained checkpoint
@@ -134,7 +134,6 @@ if __name__ == '__main__':
         if args.valsplit is not None: monitor, mode, fn = f'{prefix}avg_auc', 'max', f"{'BEST_WEIGHTS_{'}{prefix}{'avg_auc:.3f}_{epoch}'}"
         else: monitor, mode, fn = 'train_loss', 'min', 'BEST_WEIGHTS_{train_loss:.3f}_{epoch}'
         callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'RESULTS/{args.outdir}/')
-        if args.model_type == 'gcn': callback = [callback, LearningRateMonitor(logging_interval = 'epoch')]
 
     trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 
                          max_epochs = args.training_epochs, num_sanity_val_steps = 0, log_every_n_steps = loss_freq,

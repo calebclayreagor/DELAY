@@ -13,7 +13,6 @@ from typing import Tuple
 from typing import TypeVar
 
 from torchmetrics import AveragePrecision, AUROC
-from torch.optim.lr_scheduler import MultiplicativeLR
 from Networks.VGG_CNNC import VGG_CNNC
 from Networks.SiameseVGG import SiameseVGG
 from Networks.vgg import VGG
@@ -39,9 +38,7 @@ class Classifier(pl.LightningModule):
         self.val_auroc = nn.ModuleList([AUROC(task = 'binary') for _ in self.valnames])
 
     def configure_optimizers(self: Self) -> Tuple[List]:
-        optimizer = torch.optim.SGD(self.parameters(), lr = self.hparams.learning_rate)
-        scheduler = MultiplicativeLR(optimizer, lr_lambda = lambda epoch: 2 if epoch > 0 and epoch % 15 == 0 else 1)
-        return [optimizer], [{'scheduler' : scheduler, 'monitor' : f'{self.prefix}avg_auc', 'interval' : 'epoch'}]
+        return torch.optim.SGD(self.parameters(), lr = self.hparams.learning_rate)
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         return self.backbone(x)
