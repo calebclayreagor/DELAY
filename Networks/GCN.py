@@ -44,9 +44,7 @@ class GCN(nn.Module):
             xi = torch.cat((xi, id), dim = 0)       # [4, nchan, nbins, nbins]
             xi = torch.flatten(xi)                  # [4 * nchan * nbins * nbins]
             xi = torch.unsqueeze(xi, 0)             # [1, 4 * nchan * nbins * nbins]
-            xi0 = torch.zeros(xi.size(), dtype = torch.float, device = torch.cuda.current_device())
-            xi = torch.tile(xi, (n_nodes - 1, 1))   # [n_nodes - 1, 4 * nchan * nbins * nbins]
-            xi = torch.cat((xi0, xi), dim = 0)      # [n_nodes, 4 * nchan * nbins * nbins]
+            xi = torch.tile(xi, (n_nodes, 1))       # [n_nodes, 4 * nchan * nbins * nbins]
             if i == 0:
                 x_batch = xi
                 edge_index_batch = edge_index
@@ -65,7 +63,6 @@ class GCN(nn.Module):
     def make_layers(self: Self,
                     cfg: List[int],
                     in_dimensions: int,
-                    # negative_slope: float = 0.2
                     ) -> Sequential:
         layers: List[nn.Module] = []
         for v in cfg:

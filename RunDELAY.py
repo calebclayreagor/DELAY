@@ -54,7 +54,6 @@ if __name__ == '__main__':
     parser.add_argument('--auc_motif', dest = 'motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'], help = 'compute AUC for examples in specified motif')
     parser.add_argument('--ablate_genes', dest = 'ablate', action = 'store_true', help = 'mask input matrices for neighbors in specified motif')
     parser.add_argument('--graph') # path to DiGraph file
-    parser.add_argument('--decay', type = float, default = 0.)
     args = parser.parse_args()
 
     # ---------------------------------
