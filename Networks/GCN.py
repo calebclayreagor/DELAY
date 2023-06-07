@@ -69,7 +69,7 @@ class GCN(nn.Module):
                     ) -> Sequential:
         layers: List[nn.Module] = []
         for v in cfg:
-            layers.append((GCNConv(in_dimensions, v, add_self_loops = True, normalize = True), 'x, edge_index -> x'))
+            layers.append((GCNConv(in_dimensions, v, add_self_loops = False, normalize = False), 'x, edge_index -> x'))
             layers.append(nn.ReLU(inplace = True))
             in_dimensions = v
         return Sequential('x, edge_index', layers)
