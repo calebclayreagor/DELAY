@@ -40,7 +40,7 @@ class Classifier(pl.LightningModule):
 
     def configure_optimizers(self: Self) -> Tuple[List]:
         optimizer = torch.optim.SGD(self.parameters(), lr = self.hparams.learning_rate)
-        scheduler = MultiplicativeLR(optimizer, lr_lambda = lambda epoch: 2 ** (epoch // 15))
+        scheduler = MultiplicativeLR(optimizer, lr_lambda = lambda epoch: 2 if epoch > 0 and epoch % 15 == 0 else 1)
         return [optimizer], [{'scheduler' : scheduler, 'monitor' : f'{self.prefix}avg_auc', 'interval' : 'epoch'}]
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
