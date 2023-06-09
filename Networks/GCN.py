@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import pathlib, glob
 import numpy as np
 import networkx as nx
 from torch_geometric.nn import GCNConv
@@ -13,16 +14,24 @@ class GCN(nn.Module):
     """GCN classifier"""
 
     def __init__(self: Self,
-                 graph: np.array,
+                 graphs: str,
                  cfg: List[int],
                  in_dimensions: int,
                  ) -> Self:
         super(GCN, self).__init__()
-        G = nx.from_numpy_array(graph, create_using = nx.DiGraph)
+
+        graphs = sorted(list(map(str, pathlib.Path(graphs).glob('*.csv'))))
+        self.graphs = [np.loadtxt(graph, delimiter = ',', dtype = np.int64) for graph in graphs]
+        print(self.graphs)
         cfg = cfg[0]; self.n_conv = 0
-        for node in list(G.nodes()):
-            d = nx.shortest_path_length(G, node, 0, weight = None)
-            if d > self.n_conv: self.n_conv = d
+        for graph in self.graphs:
+            G = nx.MultiDiGraph()
+            G.add_edges_from(graph.T)
+            for node in list(G.nodes()):
+                d = nx.shortest_path_length(G, node, 0, weight = None)
+                if d > self.n_conv: self.n_conv = d
+        input(self.n_conv)
+        
         self.edge_index = torch.tensor(np.array(np.where(graph)), dtype = torch.long)
         self.n_nodes = (self.edge_index.max() + 1)
         self.embedding = nn.Sequential(nn.Linear(in_dimensions, cfg), nn.ReLU(inplace = True))
