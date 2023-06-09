@@ -75,7 +75,7 @@ class GCN(nn.Module):
         out = torch.split(out, [self.n_nodes.sum()] * x.size(0))  # len(batch_size)    ([n_nodes, cfg])
 
         print(len(self.n_nodes))
-        input(len(np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-2])))))
+        input(len(np.concatenate((np.array([0]), (np.cumsum(self.n_nodes))))))
 
         out = out[::self.n_nodes, ...]
         return self.classifier(out)
