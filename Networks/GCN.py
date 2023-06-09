@@ -77,7 +77,7 @@ class GCN(nn.Module):
         out = torch.concat([out_i[out_ix, :] for out_i in out], dim = 0)          # [n_graphs * batch_size, cfg]
         out = self.classifier(out)                                                # [n_graphs * batch_size, 1]
         out = torch.split(out, [len(self.n_nodes)] * x.size(0))                   # len(batch_size)  ([n_graphs, 1])
-        out = torch.concat([out_i.mean() for out_i in out]).reshape(-1, 1)        # [batch_size, 1]
+        out = torch.tensor([out_i.mean() for out_i in out]).reshape(-1, 1)        # [batch_size, 1]
 
         print(out)
         input(out.size())
