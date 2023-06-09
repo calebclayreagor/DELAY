@@ -20,7 +20,7 @@ class GCN(nn.Module):
                  ) -> Self:
         super(GCN, self).__init__()
 
-        # compile list of graphs' edge arrays
+        # compile list of edge arrays
         graphs = sorted(list(map(str, pathlib.Path(graphs).glob('*.csv'))))
         graphs = [np.loadtxt(graph, delimiter = ',', dtype = np.int64) for graph in graphs]
         self.n_nodes = np.array([(graph.max() + 1) for graph in graphs])
@@ -78,8 +78,4 @@ class GCN(nn.Module):
         out = self.classifier(out)                                                # [n_graphs * batch_size, 1]
         out = torch.split(out, [len(self.n_nodes)] * x.size(0))                   # len(batch_size)  ([n_graphs, 1])
         out = torch.tensor([out_i.mean() for out_i in out]).reshape(-1, 1)        # [batch_size, 1]
-
-        print(out)
-        input(out.size())
-
         return out
