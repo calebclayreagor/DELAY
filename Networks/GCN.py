@@ -38,7 +38,7 @@ class GCN(nn.Module):
                 self.edge_index = torch.cat((self.edge_index, graph_i), dim = 1)
             input(self.graph_i)
 
-        self.edge_index = torch.tensor(, dtype = torch.long)
+        # self.edge_index = torch.tensor(, dtype = torch.long)
         # self.n_nodes = (self.edge_index.max() + 1)
         self.embedding = nn.Sequential(nn.Linear(in_dimensions, cfg), nn.ReLU(inplace = True))
         self.features = Sequential('x, edge_index',
