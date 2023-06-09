@@ -19,21 +19,27 @@ class GCN(nn.Module):
                  in_dimensions: int,
                  ) -> Self:
         super(GCN, self).__init__()
-
         graphs = sorted(list(map(str, pathlib.Path(graphs).glob('*.csv'))))
-        self.graphs = [np.loadtxt(graph, delimiter = ',', dtype = np.int64) for graph in graphs]
-        print(self.graphs)
+        graphs = [np.loadtxt(graph, delimiter = ',', dtype = np.int64) for graph in graphs]
+        self.n_nodes = np.array([(graph.max() + 1) for graph in graphs])
         cfg = cfg[0]; self.n_conv = 0
-        for graph in self.graphs:
+        for graph in graphs:
             G = nx.MultiDiGraph()
             G.add_edges_from(graph.T)
             for node in list(G.nodes()):
                 d = nx.shortest_path_length(G, node, 0, weight = None)
                 if d > self.n_conv: self.n_conv = d
-        input(self.n_conv)
         
-        self.edge_index = torch.tensor(np.array(np.where(graph)), dtype = torch.long)
-        self.n_nodes = (self.edge_index.max() + 1)
+        for i in range(len(graphs)):
+            graph_i = torch.tensor(graphs[i], dtype = torch.long)
+            if i == 0: self.edge_index = graph_i
+            else:
+                graph_i += self.n_nodes[:i].sum()
+                self.edge_index = torch.cat((self.edge_index, graph_i), dim = 1)
+            input(self.graph_i)
+
+        self.edge_index = torch.tensor(, dtype = torch.long)
+        # self.n_nodes = (self.edge_index.max() + 1)
         self.embedding = nn.Sequential(nn.Linear(in_dimensions, cfg), nn.ReLU(inplace = True))
         self.features = Sequential('x, edge_index',
             [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
