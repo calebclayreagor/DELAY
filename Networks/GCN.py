@@ -72,7 +72,7 @@ class GCN(nn.Module):
         out = self.embedding(x_batch)
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
-        out = torch.split(out, self.n_nodes.sum(), dim = 0) # len(batch_size)   ([n_nodes, cfg])
+        out = torch.split(out, (self.n_nodes.sum(), out.size(1)))  # len(batch_size)  ([n_nodes, cfg])
         print(out)
         print(len(out))
         input(out[0].size())
