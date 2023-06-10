@@ -45,7 +45,7 @@ class GCN(nn.Module):
         # neural network architecture
         self.embedding = nn.Sequential(nn.Linear(in_dimensions, cfg), nn.ReLU(inplace = True))
         self.features = Sequential('x, edge_index',
-            [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
+            [(GCNConv(cfg, cfg, add_self_loops = True, normalize = False), 'x, edge_index -> x'),
              nn.ReLU(inplace = True)])
         self.classifier = nn.Linear(cfg, 1)
         self._initialize_weights()
