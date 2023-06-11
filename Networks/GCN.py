@@ -73,15 +73,10 @@ class GCN(nn.Module):
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
         out = list(torch.split(out, [x.size(1) * self.n_nodes.sum()] * x.size(0)))   # len(batch_size)  [nchan * n_nodes, cfg]
-        print(out)
-        input(len(out))
         for i in range(len(out)):
-            out[i] = torch.split(out[i], [x.size(1)] * self.n_nodes.sum())           #      len(n_nodes)  [nchan, cfg]
-            out[i] = torch.flatten(out[i]).reshape(1, -1)                            #      len(n_nodes)  [1, nchan * cfg]
+            out[i] = list(torch.split(out[i], [x.size(1)] * self.n_nodes.sum()))     #      len(n_nodes)  [nchan, cfg]
+            out[i] = list(map(lambda j: torch.flatten(j).reshape(1, -1), out[i]))    #      len(n_nodes)  [1, nchan * cfg]
             out[i] = torch.cat(out[i], dim = 0)                                      #      [n_nodes, nchan * cfg]
-        #
-        #                                                                            # len(batch_size)   [n_nodes, nchan * cfg]
-        #
         out_ix = np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-1])))
         out = torch.concat([out_i[out_ix, :] for out_i in out], dim = 0)             # [n_graphs * batch_size, nchan * cfg]
         out = self.classifier(out)                                                   # [n_graphs * batch_size, 1]
