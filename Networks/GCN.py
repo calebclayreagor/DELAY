@@ -42,6 +42,9 @@ class GCN(nn.Module):
             else:
                 graph_i += self.n_nodes[:i].sum()
                 self.edge_index = torch.cat((self.edge_index, graph_i), dim = 1)
+        for i in range(1, in_channels):
+            self.edge_index = torch.cat(
+                (self.edge_index, (self.n_nodes.sum() * i) + self.edge_index), dim = 1)
 
         # neural network architecture
         self.embedding = nn.Sequential(nn.Linear((nbins ** 2), cfg), nn.ReLU(inplace = True))
@@ -63,7 +66,11 @@ class GCN(nn.Module):
             else:
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat(
-                    (edge_index_batch, (self.n_nodes.sum() * i) + edge_index), dim = 1)
+                    (edge_index_batch, ((self.n_nodes.sum() * x.size(1)) * i) + edge_index), dim = 1)
+                
+        print(x_batch.size(0))
+        input(edge_index_batch.max())
+
         out = self.embedding(x_batch)                                                    # [nchan * n_nodes * batch_size, cfg]
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
