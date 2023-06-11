@@ -73,6 +73,8 @@ class GCN(nn.Module):
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
         out = list(torch.split(out, [x.size(1) * self.n_nodes.sum()] * x.size(0)))   # len(batch_size)  [nchan * n_nodes, cfg]
+        print(out)
+        input(len(out))
         for i in range(len(out)):
             out[i] = torch.split(out[i], [x.size(1)] * self.n_nodes.sum())           #      len(n_nodes)  [nchan, cfg]
             out[i] = torch.flatten(out[i]).reshape(1, -1)                            #      len(n_nodes)  [1, nchan * cfg]
