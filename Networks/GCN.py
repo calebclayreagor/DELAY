@@ -66,7 +66,7 @@ class GCN(nn.Module):
             else:
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat(
-                    (edge_index_batch, ((self.n_nodes.sum() * x.size(1)) * i) + edge_index), dim = 1)
+                    (edge_index_batch, (edge_index.max() * i) + edge_index), dim = 1)
                 
         print(x_batch.size(0))
         input(edge_index_batch.max())
