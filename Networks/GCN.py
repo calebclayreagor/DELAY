@@ -16,7 +16,8 @@ class GCN(nn.Module):
     def __init__(self: Self,
                  graphs: str,
                  cfg: List[int],
-                 in_dimensions: int,
+                 in_channels: int,
+                 nbins: int,
                  ) -> Self:
         super(GCN, self).__init__()
 
@@ -43,11 +44,11 @@ class GCN(nn.Module):
                 self.edge_index = torch.cat((self.edge_index, graph_i), dim = 1)
 
         # neural network architecture
-        self.embedding = nn.Sequential(nn.Linear(in_dimensions, cfg), nn.ReLU(inplace = True))
+        self.embedding = nn.Sequential(nn.Linear((nbins ** 2), cfg), nn.ReLU(inplace = True))
         self.features = Sequential('x, edge_index',
             [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
              nn.ReLU(inplace = True)])
-        self.classifier = nn.Linear(cfg, 1)
+        self.classifier = nn.Linear((in_channels * cfg), 1)
         self._initialize_weights()
 
     def _initialize_weights(self: Self) -> None:
@@ -58,10 +59,9 @@ class GCN(nn.Module):
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         edge_index = self.edge_index.to(torch.cuda.current_device())
         for i in range(x.size(0)):
-            xi = x[i, ...]                                  # [nchan, nbins, nbins]      (torch.float32)
-            xi = torch.flatten(xi)                          # [nchan * nbins * nbins]
-            xi = torch.unsqueeze(xi, 0)                     # [1, nchan * nbins * nbins]
-            xi = torch.tile(xi, (self.n_nodes.sum(), 1))    # [n_nodes, nchan * nbins * nbins]
+            xi = x[i, ...]                                                       # [nchan, nbins, nbins]   (torch.float32)
+            xi = torch.flatten(xi, 1)                                            # [nchan, nbins * nbins]
+            xi = torch.tile(xi, (self.n_nodes.sum(), 1))                         # [nchan * n_nodes, nbins * nbins]
             if i == 0:
                 x_batch = xi
                 edge_index_batch = edge_index
@@ -69,13 +69,20 @@ class GCN(nn.Module):
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat(
                     (edge_index_batch, (self.n_nodes.sum() * i) + edge_index), dim = 1)
-        out = self.embedding(x_batch)
+        out = self.embedding(x_batch)                                            # [nchan * n_nodes * batch_size, cfg]
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
-        out = torch.split(out, [self.n_nodes.sum()] * x.size(0))                  # len(batch_size)  ([n_nodes, cfg])
+        out = torch.split(out, [x.size(1) * self.n_nodes.sum()] * x.size(0))     # len(batch_size)  [nchan * n_nodes, cfg]
+        for i in range(len(out)):
+            out[i] = torch.split(out[i], [x.size(1)] * self.n_nodes.sum())       #      len(n_nodes)  [nchan, cfg]
+            out[i] = torch.flatten(out[i]).reshape(1, -1)                        #      len(n_nodes)  [1, nchan * cfg]
+            out[i] = torch.cat(out[i], dim = 0)                                  #      [n_nodes, nchan * cfg]
+        #
+        #                                                                        # len(batch_size)   [n_nodes, nchan * cfg]
+        #
         out_ix = np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-1])))
-        out = torch.concat([out_i[out_ix, :] for out_i in out], dim = 0)          # [n_graphs * batch_size, cfg]
-        out = self.classifier(out)                                                # [n_graphs * batch_size, 1]
-        out = torch.split(out, [len(self.n_nodes)] * x.size(0))                   # len(batch_size)  ([n_graphs, 1])
-        out = torch.concat(out, dim = 1).mean(axis = 0).reshape(-1, 1)            # [batch_size, 1]
+        out = torch.concat([out_i[out_ix, :] for out_i in out], dim = 0)         # [n_graphs * batch_size, nchan * cfg]
+        out = self.classifier(out)                                               # [n_graphs * batch_size, 1]
+        out = torch.split(out, [len(self.n_nodes)] * x.size(0))                  # len(batch_size)   [n_graphs, 1]
+        out = torch.concat(out, dim = 1).mean(axis = 0).reshape(-1, 1)           # [batch_size, 1]
         return out
