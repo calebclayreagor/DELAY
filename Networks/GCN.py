@@ -51,17 +51,12 @@ class GCN(nn.Module):
         self.classifier = nn.Linear((in_channels * cfg), 1)
         self._initialize_weights()
 
-    def _initialize_weights(self: Self) -> None:
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.kaiming_uniform_(m.weight)
-
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         edge_index = self.edge_index.to(torch.cuda.current_device())
         for i in range(x.size(0)):
-            xi = x[i, ...]                                                           # [nchan, nbins, nbins]   (torch.float32)
-            xi = torch.flatten(xi, 1)                                                # [nchan, nbins * nbins]
-            xi = torch.tile(xi, (self.n_nodes.sum(), 1))                             # [nchan * n_nodes, nbins * nbins]
+            xi = x[i, ...]                                                               # [nchan, nbins, nbins]   (torch.float32)
+            xi = torch.flatten(xi, 1)                                                    # [nchan, nbins * nbins]
+            xi = torch.tile(xi, (self.n_nodes.sum(), 1))                                 # [nchan * n_nodes, nbins * nbins]
             if i == 0:
                 x_batch = xi
                 edge_index_batch = edge_index
@@ -69,17 +64,22 @@ class GCN(nn.Module):
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat(
                     (edge_index_batch, (self.n_nodes.sum() * i) + edge_index), dim = 1)
-        out = self.embedding(x_batch)                                                # [nchan * n_nodes * batch_size, cfg]
+        out = self.embedding(x_batch)                                                    # [nchan * n_nodes * batch_size, cfg]
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
-        out = list(torch.split(out, [x.size(1) * self.n_nodes.sum()] * x.size(0)))   # len(batch_size)  [nchan * n_nodes, cfg]
+        out = list(torch.split(out, [x.size(1) * self.n_nodes.sum()] * x.size(0)))       # len(batch_size)  [nchan * n_nodes, cfg]
         for i in range(len(out)):
-            out[i] = list(torch.split(out[i], [x.size(1)] * self.n_nodes.sum()))     #      len(n_nodes)  [nchan, cfg]
-            out[i] = list(map(lambda j: torch.flatten(j).reshape(1, -1), out[i]))    #      len(n_nodes)  [1, nchan * cfg]
-            out[i] = torch.cat(out[i], dim = 0)                                      #      [n_nodes, nchan * cfg]
+            out[i] = list(torch.split(out[i], [x.size(1)] * self.n_nodes.sum()))         #         len(n_nodes)  [nchan, cfg]
+            out[i] = list(map(lambda j: torch.flatten(j).reshape(1, -1), out[i]))        #         len(n_nodes)  [1, nchan * cfg]
+            out[i] = torch.cat(out[i], dim = 0)                                          #         [n_nodes, nchan * cfg]
         out_ix = np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-1])))
-        out = torch.concat([out_i[out_ix, :] for out_i in out], dim = 0)             # [n_graphs * batch_size, nchan * cfg]
-        out = self.classifier(out)                                                   # [n_graphs * batch_size, 1]
-        out = torch.split(out, [len(self.n_nodes)] * x.size(0))                      # len(batch_size)   [n_graphs, 1]
-        out = torch.concat(out, dim = 1).mean(axis = 0).reshape(-1, 1)               # [batch_size, 1]
+        out = torch.concat([out_i[out_ix, :] for out_i in out], dim = 0)                 # [n_graphs * batch_size, nchan * cfg]
+        out = self.classifier(out)                                                       # [n_graphs * batch_size, 1]
+        out = torch.split(out, [len(self.n_nodes)] * x.size(0))                          # len(batch_size)   [n_graphs, 1]
+        out = torch.concat(out, dim = 1).mean(axis = 0).reshape(-1, 1)                   # [batch_size, 1]
         return out
+    
+    def _initialize_weights(self: Self) -> None:
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight)
