@@ -80,12 +80,15 @@ class GCN(nn.Module):
         out = self.embedding(x_batch)                                                    # [nchan * n_nodes * batch_size, cfg]
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
-        out = list(torch.split(out, [self.n_nodes.sum() * x.size(1)] * x.size(0)))       # len(batch_size)  [nchan * n_nodes, cfg]
+        out = list(torch.split(out, [self.n_nodes.sum() * x.size(1)] * x.size(0)))       # len(batch_size)   [nchan * n_nodes, cfg]
         for i in range(len(out)):
-            out[i] = list(torch.split(out[i], list(self.n_nodes * x.size(1))))           #         len(n_nodes)  [nchan, cfg]
+            out[i] = list(torch.split(out[i], list(self.n_nodes * x.size(1))))           #    len(n_graphs)  [n_nodes_graph * nchan, cfg]
+            for j in range(len(out[i])):
+                out[i][j] = list(torch.split(out[i][j], [self.n_nodes[j]] * x.size(1)))  #       len(nchan)  [n_nodes_graph, cfg]
 
-            print(self.n_nodes)
-            input(list(map(len, out[i])))
+                print(len(out[i][j]))
+                input(out[i][j][0].size())
+
 
 
 
