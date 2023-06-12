@@ -38,19 +38,24 @@ class GCN(nn.Module):
         # compile master edge array
         for i in range(len(graphs)):
             graph_i = torch.tensor(graphs[i], dtype = torch.long)
+            x_ind = torch.ones(self.n_nodes[i], dtype = torch.long)
             for j in range(in_channels):
                 if j == 0:
                     graph_i_channel = graph_i
+                    x_ind_channel = (x_ind * j)
                 else:
                     graph_i_channel = torch.cat(
                         (graph_i_channel, (self.n_nodes[i] * j) + graph_i), dim = 1)
+                    x_ind_channel = torch.cat((x_ind_channel, (x_ind * j)), dim = 0)
+
+            print(graph_i_channel.max())
+            input(x_ind_channel.size())
+
             if i == 0: 
                 self.edge_index = graph_i_channel
             else:
                 graph_i_channel += (self.n_nodes[:i].sum() * in_channels)
                 self.edge_index = torch.cat((self.edge_index, graph_i_channel), dim = 1)
-
-            input(self.edge_index)
 
 
         # neural network architecture
