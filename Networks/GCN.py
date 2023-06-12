@@ -89,14 +89,14 @@ class GCN(nn.Module):
                 out[i][j] = torch.cat(out[i][j], dim = 0).reshape(1, -1)                 #       [1, nchan * cfg]
             out[i] = torch.cat(out[i], dim = 0)                                          #    [n_graphs, nchan * cfg]
         out = torch.concat(out, dim = 0)                                                 # [batch_size * n_graphs, nchan * cfg]
-
-        input(out.size())
-
-
-
-
-        out = self.classifier(out)                                                       # [n_graphs * batch_size, 1]
+        out = self.classifier(out)                                                       # [batch_size * n_graphs, 1]
         out = torch.split(out, [len(self.n_nodes)] * x.size(0))                          # len(batch_size)   [n_graphs, 1]
+
+        print(len(out))
+        input(out[0].size())
+
+
+
         out = torch.concat(out, dim = 1).mean(axis = 0).reshape(-1, 1)                   # [batch_size, 1]
         return out
     
