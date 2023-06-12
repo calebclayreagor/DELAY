@@ -77,16 +77,18 @@ class GCN(nn.Module):
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat(
                     (edge_index_batch, ((self.n_nodes.sum() * x.size(1)) * i) + edge_index), dim = 1)
-
-        print(edge_index_batch.max())
-        input(x_batch.size(0))
-
         out = self.embedding(x_batch)                                                    # [nchan * n_nodes * batch_size, cfg]
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
-        out = list(torch.split(out, [x.size(1) * self.n_nodes.sum()] * x.size(0)))       # len(batch_size)  [nchan * n_nodes, cfg]
+        out = list(torch.split(out, [self.n_nodes.sum() * x.size(1)] * x.size(0)))       # len(batch_size)  [nchan * n_nodes, cfg]
         for i in range(len(out)):
-            out[i] = list(torch.split(out[i], [x.size(1)] * self.n_nodes.sum()))         #         len(n_nodes)  [nchan, cfg]
+            out[i] = list(torch.split(out[i], list(self.n_nodes * x.size(1))))           #         len(n_nodes)  [nchan, cfg]
+
+            print(self.n_nodes)
+            input(list(map(len, out[i])))
+
+
+
             out[i] = list(map(lambda j: torch.flatten(j).reshape(1, -1), out[i]))        #         len(n_nodes)  [1, nchan * cfg]
             out[i] = torch.cat(out[i], dim = 0)                                          #         [n_nodes, nchan * cfg]
         out_ix = np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-1])))
