@@ -47,15 +47,16 @@ class GCN(nn.Module):
                     graph_i_channel = torch.cat(
                         (graph_i_channel, (self.n_nodes[i] * j) + graph_i), dim = 1)
                     x_ind_channel = torch.cat((x_ind_channel, (x_ind * j)), dim = 0)
-
-            print(graph_i_channel.max())
-            input(x_ind_channel.size())
-
-            if i == 0: 
+            if i == 0:
                 self.edge_index = graph_i_channel
+                self.x_ind = x_ind_channel
             else:
                 graph_i_channel += (self.n_nodes[:i].sum() * in_channels)
                 self.edge_index = torch.cat((self.edge_index, graph_i_channel), dim = 1)
+                self.x_ind = torch.cat((self.x_ind, x_ind_channel), dim = 0)
+            
+            input(self.edge_index)
+            input(self.x_ind)
 
 
         # neural network architecture
