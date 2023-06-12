@@ -38,16 +38,25 @@ class GCN(nn.Module):
         # compile master edge array
         for i in range(len(graphs)):
             graph_i = torch.tensor(graphs[i], dtype = torch.long)
+            for j in range(in_channels):
+                if j == 0:
+                    graph_i_channel = graph_i
+                else:
+                    graph_i_channel = torch.cat(
+                        (graph_i_channel, (self.n_nodes[i] * j) + graph_i), dim = 1)
+                input(graph_i_channel)
+
             if i == 0: edge_index = graph_i
             else:
                 graph_i += self.n_nodes[:i].sum()
                 edge_index = torch.cat((edge_index, graph_i), dim = 1)
-        for i in range(in_channels):
-            if i == 0:
-                self.edge_index = edge_index
-            else:
-                self.edge_index = torch.cat(
-                    (self.edge_index, (self.n_nodes.sum() * i) + edge_index), dim = 1)
+
+        # for i in range(in_channels):
+        #     if i == 0:
+        #         self.edge_index = edge_index
+        #     else:
+        #         self.edge_index = torch.cat(
+        #             (self.edge_index, (self.n_nodes.sum() * i) + edge_index), dim = 1)
 
         # neural network architecture
         self.embedding = nn.Sequential(nn.Linear((nbins ** 2), cfg), nn.ReLU(inplace = True))
