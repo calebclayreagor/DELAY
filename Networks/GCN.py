@@ -88,9 +88,8 @@ class GCN(nn.Module):
                 out[i][j] = list(map(lambda out_i_j: out_i_j[0, :], out[i][j]))          #       len(nchan)  [cfg]
                 out[i][j] = torch.cat(out[i][j], dim = 0).reshape(1, -1)                 #       [1, nchan * cfg]
 
-                input(out[i][j].size())
-
-
+            print(len(out[i]))
+            input(out[i][0].size())
 
 
             out[i] = list(map(lambda j: torch.flatten(j).reshape(1, -1), out[i]))        #         len(n_nodes)  [1, nchan * cfg]
