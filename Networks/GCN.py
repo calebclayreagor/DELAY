@@ -63,11 +63,15 @@ class GCN(nn.Module):
         self.classifier = nn.Linear((in_channels * cfg), 1)
         self._initialize_weights()
 
-    def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self: Self, 
+                x: torch.Tensor
+                ) -> torch.Tensor:
+        
+        # compile graphs' inputs
         edge_index = self.edge_index.to(torch.cuda.current_device())
         x_ind = self.x_ind.to(torch.cuda.current_device())
         for i in range(x.size(0)):
-            xi = x[i, ...]                                                               # [nchan, nbins, nbins]   (torch.float32)
+            xi = x[i, ...]                                                               # [nchan, nbins, nbins] (torch.float32)
             xi = torch.flatten(xi, 1)                                                    # [nchan, nbins * nbins]
             xi = xi[x_ind, :]                                                            # [nchan * n_nodes, nbins * nbins]
             if i == 0:
@@ -77,27 +81,28 @@ class GCN(nn.Module):
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat(
                     (edge_index_batch, ((self.n_nodes.sum() * x.size(1)) * i) + edge_index), dim = 1)
+        
+        # embeddings -> graph convolutions (features)
         out = self.embedding(x_batch)                                                    # [nchan * n_nodes * batch_size, cfg]
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
-        out = list(torch.split(out, [self.n_nodes.sum() * x.size(1)] * x.size(0)))       # len(batch_size)   [nchan * n_nodes, cfg]
+        
+        # select graphs' output nodes
+        out = list(torch.split(out, [self.n_nodes.sum() * x.size(1)] * x.size(0)))       # len(batch_size): [nchan * n_nodes, cfg]
         for i in range(len(out)):
-            out[i] = list(torch.split(out[i], list(self.n_nodes * x.size(1))))           #    len(n_graphs)  [n_nodes_graph * nchan, cfg]
+            out[i] = list(torch.split(out[i], list(self.n_nodes * x.size(1))))           #    len(n_graphs): [n_nodes_graph * nchan, cfg]
             for j in range(len(out[i])):
-                out[i][j] = list(torch.split(out[i][j], [self.n_nodes[j]] * x.size(1)))  #       len(nchan)  [n_nodes_graph, cfg]
-                out[i][j] = list(map(lambda out_i_j: out_i_j[0, :], out[i][j]))          #       len(nchan)  [cfg]
+                out[i][j] = list(torch.split(out[i][j], [self.n_nodes[j]] * x.size(1)))  #       len(nchan): [n_nodes_graph, cfg]
+                out[i][j] = list(map(lambda out_i_j: out_i_j[0, :], out[i][j]))          #       len(nchan): [cfg]
                 out[i][j] = torch.cat(out[i][j], dim = 0).reshape(1, -1)                 #       [1, nchan * cfg]
             out[i] = torch.cat(out[i], dim = 0)                                          #    [n_graphs, nchan * cfg]
         out = torch.concat(out, dim = 0)                                                 # [batch_size * n_graphs, nchan * cfg]
+        
+        # classification and ensemble average
         out = self.classifier(out)                                                       # [batch_size * n_graphs, 1]
-        out = torch.split(out, [len(self.n_nodes)] * x.size(0))                          # len(batch_size)   [n_graphs, 1]
-
-        print(len(out))
-        input(out[0].size())
-
-
-
-        out = torch.concat(out, dim = 1).mean(axis = 0).reshape(-1, 1)                   # [batch_size, 1]
+        out = torch.split(out, [len(self.n_nodes)] * x.size(0))                          # len(batch_size): [n_graphs, 1]
+        out = torch.concat(out, dim = 1)                                                 # [n_graphs, batch_size]
+        out = out.mean(axis = 0).reshape(-1, 1)                                          # [batch_size, 1]
         return out
     
     def _initialize_weights(self: Self) -> None:
