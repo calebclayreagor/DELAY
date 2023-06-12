@@ -70,8 +70,6 @@ class GCN(nn.Module):
             xi = x[i, ...]                                                               # [nchan, nbins, nbins]   (torch.float32)
             xi = torch.flatten(xi, 1)                                                    # [nchan, nbins * nbins]
             xi = xi[x_ind, :]                                                            # [nchan * n_nodes, nbins * nbins]
-            input(xi.size())
-            # xi = torch.tile(xi, (self.n_nodes.sum(), 1))                                 # [nchan * n_nodes, nbins * nbins]
             if i == 0:
                 x_batch = xi
                 edge_index_batch = edge_index
@@ -79,6 +77,10 @@ class GCN(nn.Module):
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat(
                     (edge_index_batch, ((self.n_nodes.sum() * x.size(1)) * i) + edge_index), dim = 1)
+
+        print(edge_index_batch.max())
+        input(x_batch.size(0))
+
         out = self.embedding(x_batch)                                                    # [nchan * n_nodes * batch_size, cfg]
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
