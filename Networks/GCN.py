@@ -55,8 +55,8 @@ class GCN(nn.Module):
                 self.edge_index = torch.cat((self.edge_index, graph_i_channel), dim = 1)
                 self.x_ind = torch.cat((self.x_ind, x_ind_channel), dim = 0)
             
-            input(self.edge_index)
-            input(self.x_ind)
+        print(self.edge_index.max())
+        input(self.x_ind.size())
 
 
         # neural network architecture
