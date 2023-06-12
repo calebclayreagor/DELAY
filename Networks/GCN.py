@@ -87,15 +87,14 @@ class GCN(nn.Module):
                 out[i][j] = list(torch.split(out[i][j], [self.n_nodes[j]] * x.size(1)))  #       len(nchan)  [n_nodes_graph, cfg]
                 out[i][j] = list(map(lambda out_i_j: out_i_j[0, :], out[i][j]))          #       len(nchan)  [cfg]
                 out[i][j] = torch.cat(out[i][j], dim = 0).reshape(1, -1)                 #       [1, nchan * cfg]
+            out[i] = torch.cat(out[i], dim = 0)                                          #    [n_graphs, nchan * cfg]
+        out = torch.concat(out, dim = 0)                                                 # [batch_size * n_graphs, nchan * cfg]
 
-            print(len(out[i]))
-            input(out[i][0].size())
+        input(out.size())
 
 
-            out[i] = list(map(lambda j: torch.flatten(j).reshape(1, -1), out[i]))        #         len(n_nodes)  [1, nchan * cfg]
-            out[i] = torch.cat(out[i], dim = 0)                                          #         [n_nodes, nchan * cfg]
-        out_ix = np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-1])))
-        out = torch.concat([out_i[out_ix, :] for out_i in out], dim = 0)                 # [n_graphs * batch_size, nchan * cfg]
+
+
         out = self.classifier(out)                                                       # [n_graphs * batch_size, 1]
         out = torch.split(out, [len(self.n_nodes)] * x.size(0))                          # len(batch_size)   [n_graphs, 1]
         out = torch.concat(out, dim = 1).mean(axis = 0).reshape(-1, 1)                   # [batch_size, 1]
