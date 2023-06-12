@@ -44,19 +44,14 @@ class GCN(nn.Module):
                 else:
                     graph_i_channel = torch.cat(
                         (graph_i_channel, (self.n_nodes[i] * j) + graph_i), dim = 1)
-                input(graph_i_channel)
-
-            if i == 0: edge_index = graph_i
+            if i == 0: 
+                self.edge_index = graph_i_channel
             else:
-                graph_i += self.n_nodes[:i].sum()
-                edge_index = torch.cat((edge_index, graph_i), dim = 1)
+                graph_i_channel += (self.n_nodes[:i].sum() * in_channels)
+                self.edge_index = torch.cat((self.edge_index, graph_i_channel), dim = 1)
 
-        # for i in range(in_channels):
-        #     if i == 0:
-        #         self.edge_index = edge_index
-        #     else:
-        #         self.edge_index = torch.cat(
-        #             (self.edge_index, (self.n_nodes.sum() * i) + edge_index), dim = 1)
+            input(self.edge_index)
+
 
         # neural network architecture
         self.embedding = nn.Sequential(nn.Linear((nbins ** 2), cfg), nn.ReLU(inplace = True))
