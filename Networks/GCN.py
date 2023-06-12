@@ -35,7 +35,7 @@ class GCN(nn.Module):
                 d = nx.shortest_path_length(G, node, 0, weight = None)
                 if d > self.n_conv: self.n_conv = d
         
-        # compile master edge array
+        # compile edge_index, x_ind: graphs x channels
         for i in range(len(graphs)):
             graph_i = torch.tensor(graphs[i], dtype = torch.long)
             x_ind = torch.ones(self.n_nodes[i], dtype = torch.long)
@@ -54,10 +54,6 @@ class GCN(nn.Module):
                 graph_i_channel += (self.n_nodes[:i].sum() * in_channels)
                 self.edge_index = torch.cat((self.edge_index, graph_i_channel), dim = 1)
                 self.x_ind = torch.cat((self.x_ind, x_ind_channel), dim = 0)
-            
-        print(self.edge_index.max())
-        input(self.x_ind.size())
-
 
         # neural network architecture
         self.embedding = nn.Sequential(nn.Linear((nbins ** 2), cfg), nn.ReLU(inplace = True))
@@ -69,10 +65,13 @@ class GCN(nn.Module):
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         edge_index = self.edge_index.to(torch.cuda.current_device())
+        x_ind = self.x_ind.to(torch.cuda.current_device())
         for i in range(x.size(0)):
             xi = x[i, ...]                                                               # [nchan, nbins, nbins]   (torch.float32)
             xi = torch.flatten(xi, 1)                                                    # [nchan, nbins * nbins]
-            xi = torch.tile(xi, (self.n_nodes.sum(), 1))                                 # [nchan * n_nodes, nbins * nbins]
+            xi = xi[x_ind, :]                                                            # [nchan * n_nodes, nbins * nbins]
+            input(xi.size())
+            # xi = torch.tile(xi, (self.n_nodes.sum(), 1))                                 # [nchan * n_nodes, nbins * nbins]
             if i == 0:
                 x_batch = xi
                 edge_index_batch = edge_index
