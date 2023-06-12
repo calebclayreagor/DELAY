@@ -85,6 +85,7 @@ class GCN(nn.Module):
             out[i] = list(torch.split(out[i], list(self.n_nodes * x.size(1))))           #    len(n_graphs)  [n_nodes_graph * nchan, cfg]
             for j in range(len(out[i])):
                 out[i][j] = list(torch.split(out[i][j], [self.n_nodes[j]] * x.size(1)))  #       len(nchan)  [n_nodes_graph, cfg]
+                out[i][j] = list(map(lambda out_i_j: out_i_j[0, :], out[i][j]))          #       len(nchan)  [1, cfg]
 
                 print(len(out[i][j]))
                 input(out[i][j][0].size())
