@@ -27,8 +27,7 @@ class GCN(nn.Module):
         self.n_nodes = np.array([(graph.max() + 1) for graph in graphs])
 
         # find max required n_convs
-        cfg = (nbins ** 2) #cfg[0]
-        self.n_conv = 0
+        cfg = cfg[0]; self.n_conv = 0
         for graph in graphs:
             G = nx.MultiDiGraph()
             G.add_edges_from(graph.T)
