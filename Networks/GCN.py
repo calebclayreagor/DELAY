@@ -61,7 +61,8 @@ class GCN(nn.Module):
         self.features = Sequential('x, edge_index',
             [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
              nn.ReLU(inplace = True)])
-        self.classifier = nn.Linear((in_channels * cfg), 1)
+        self.classifier0 = nn.Sequential(nn.Linear(cfg, 1), nn.ReLU(inplace = True))
+        self.classifier = nn.Linear(in_channels, 1)
         self._initialize_weights()
 
     def forward(self: Self, 
@@ -88,6 +89,7 @@ class GCN(nn.Module):
         out = x_batch
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
+        out = self.classifier0(out)
         
         # select graphs' output nodes
         out = list(torch.split(out, [self.n_nodes.sum() * x.size(1)] * x.size(0)))       # len(batch_size): [nchan * n_nodes, cfg]
