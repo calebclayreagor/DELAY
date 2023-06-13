@@ -90,6 +90,8 @@ class GCN(nn.Module):
         for _ in range(self.n_conv):
             out = self.features(out, edge_index_batch)
         out = self.classifier0(out)
+
+        input(out.size())
         
         # select graphs' output nodes
         out = list(torch.split(out, [self.n_nodes.sum() * x.size(1)] * x.size(0)))       # len(batch_size): [nchan * n_nodes, cfg]
