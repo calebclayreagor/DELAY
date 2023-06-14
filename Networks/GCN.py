@@ -65,8 +65,9 @@ class GCN(nn.Module):
             xi = torch.cat((xi, id), dim = 0)
             xi = torch.flatten(xi, 1)
 
-            print(xi)
-            input(xi.size())                                              
+            xi_ind = np.argpartition(xi[0, ...], -self.top_n)[-self.top_n:]
+
+            input(xi[0, xi_ind])                                             
 
 
 
