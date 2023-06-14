@@ -61,11 +61,11 @@ class GCN(nn.Module):
             id = id.astype(np.float64)
             id /= (id.shape[0] + 1)
             id = torch.tensor(id, dtype = xi.dtype, device = torch.cuda.current_device())
+            xi = torch.unsqueeze(xi, 0)
+            xi = torch.cat((xi, id), dim = 0)
 
-            input(id)
-
-            # xi = torch.unsqueeze(xi, 0)         # [1, nchan, nbins, nbins]
-            # xi = torch.cat((xi, id), dim = 0)   # [4, nchan, nbins, nbins]
+            print(xi)
+            input(xi.size())
 
 
             xi = torch.flatten(xi)                                                   # [nchan * nbins * nbins]
