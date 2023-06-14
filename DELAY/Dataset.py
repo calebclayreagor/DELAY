@@ -174,7 +174,7 @@ class Dataset(torch.utils.data.Dataset):
         for i in range(self.args.neighbors):
             matrix_gpairs.append([0, 2 + i])
             matrix_gpairs.append([1, 2 + self.args.neighbors + i])
-        nchannels = len(matrix_gpairs) * (1 + self.args.max_lag)
+        # nchannels = len(matrix_gpairs) * (1 + self.args.max_lag)
 
         # loop over groups of gpairs to compile mini-batches: X, y, msk, g
         self.X_fn = [None] * len(gpairs_batched)
@@ -203,48 +203,44 @@ class Dataset(torch.utils.data.Dataset):
             # X_batch_j = np.zeros((ds_batch_j.shape[0], nchannels, self.args.nbins, self.args.nbins))
             X_batch_j = [ None ] * ds_batch_j.shape[0]
             for i in range(len(X_batch_j)):
-                print(i)
                 ds_i = np.squeeze(ds_batch_j[i, ...]).T
                 H, _ = np.histogramdd(ds_i, bins = self.args.nbins)
                 H /= np.sqrt((H.flatten()**2).sum())
                 X_batch_j[i] = np.expand_dims(H, 0)
                 # for pair_idx in range(len(matrix_gpairs)):
 
-                    # # pseudotime-aligned joint-probability matrix
-                    # gpair = matrix_gpairs[pair_idx]
-                    # ds_gpair = np.squeeze(ds_batch_j[i, gpair, :, :]).T
-                    # if 0 in self.args.mask_lags: pass
-                    # else:
-                    #     H, _ = np.histogramdd(ds_gpair, bins = (self.args.nbins, self.args.nbins))
-                    #     H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
-                    #     X_batch_j[i, pair_idx * (1 + self.args.max_lag), :, :] = H
+                #     # pseudotime-aligned joint-probability matrix
+                #     gpair = matrix_gpairs[pair_idx]
+                #     ds_gpair = np.squeeze(ds_batch_j[i, gpair, :, :]).T
+                #     if 0 in self.args.mask_lags: pass
+                #     else:
+                #         H, _ = np.histogramdd(ds_gpair, bins = (self.args.nbins, self.args.nbins))
+                #         H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
+                #         X_batch_j[i, pair_idx * (1 + self.args.max_lag), :, :] = H
 
-                    # # pseudotime-lagged joint-probability matrices
-                    # for lag in range(1, self.args.max_lag + 1):
-                    #     if lag in self.args.mask_lags: pass
-                    #     else:
-                    #         ds_gpair_lag = np.concatenate((ds_gpair[:-lag, 0].reshape(-1, 1),
-                    #                                        ds_gpair[lag:, 1].reshape(-1, 1)), axis=1)
-                    #         H, _ = np.histogramdd(ds_gpair_lag, bins = (self.args.nbins, self.args.nbins))
-                    #         H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
-                    #         X_batch_j[i, pair_idx * (1 + self.args.max_lag) + lag, :, :] = H
+                #     # pseudotime-lagged joint-probability matrices
+                #     for lag in range(1, self.args.max_lag + 1):
+                #         if lag in self.args.mask_lags: pass
+                #         else:
+                #             ds_gpair_lag = np.concatenate((ds_gpair[:-lag, 0].reshape(-1, 1),
+                #                                            ds_gpair[lag:, 1].reshape(-1, 1)), axis=1)
+                #             H, _ = np.histogramdd(ds_gpair_lag, bins = (self.args.nbins, self.args.nbins))
+                #             H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
+                #             X_batch_j[i, pair_idx * (1 + self.args.max_lag) + lag, :, :] = H
             X_batch_j = np.concatenate(X_batch_j, 0)
 
-            print(X_batch_j)
-            input(X_batch_j.shape)
+            # # mask specific regions of the joint-probability matrices [optional]
+            # if self.args.mask_region == 'off-off': 
+            #     X_batch_j[:, :, :(self.args.nbins//2), :(self.args.nbins//2)] = 0.
 
-            # mask specific regions of the joint-probability matrices [optional]
-            if self.args.mask_region == 'off-off': 
-                X_batch_j[:, :, :(self.args.nbins//2), :(self.args.nbins//2)] = 0.
+            # if self.args.mask_region in ['on-off', 'on']: 
+            #     X_batch_j[:, :, (self.args.nbins//2):, :(self.args.nbins//2)] = 0.
 
-            if self.args.mask_region in ['on-off', 'on']: 
-                X_batch_j[:, :, (self.args.nbins//2):, :(self.args.nbins//2)] = 0.
+            # if self.args.mask_region in ['off-on', 'on']: 
+            #     X_batch_j[:, :, :(self.args.nbins//2), (self.args.nbins//2):] = 0.
 
-            if self.args.mask_region in ['off-on', 'on']: 
-                X_batch_j[:, :, :(self.args.nbins//2), (self.args.nbins//2):] = 0.
-
-            if self.args.mask_region in ['on-on', 'on']: 
-                X_batch_j[:, :, (self.args.nbins//2):, (self.args.nbins//2):] = 0.
+            # if self.args.mask_region in ['on-on', 'on']: 
+            #     X_batch_j[:, :, (self.args.nbins//2):, (self.args.nbins//2):] = 0.
 
             # save X, y, msk, and g as numpy files
             np.save(X_fn_j, X_batch_j.astype(np.float32))
