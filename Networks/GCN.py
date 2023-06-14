@@ -44,10 +44,11 @@ class GCN(nn.Module):
                 self.edge_index = torch.cat((self.edge_index, graph_i), dim = 1)
 
         # neural network architecture
+        self.embedding = nn.Sequential(nn.Linear(in_dimensions, cfg), nn.ReLU(inplace = True))
         self.features = Sequential('x, edge_index',
             [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
              nn.ReLU(inplace = True)])
-        self.classifier = nn.Linear(cfg, 1)
+        self.classifier = nn.Sequential(nn.Linear(cfg, cfg), nn.ReLU(inplace = True), nn.Linear(cfg, 1))
         self._initialize_weights()
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
@@ -64,8 +65,7 @@ class GCN(nn.Module):
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat(
                     (edge_index_batch, (self.n_nodes.sum() * i) + edge_index), dim = 1)
-        # out = self.embedding(x_batch)
-        out = x_batch
+        out = self.embedding(x_batch)
         for _ in range(self.n_conv): out = self.features(out, edge_index_batch)
         out = torch.split(out, [self.n_nodes.sum()] * x.size(0))                     # len(batch_size): [n_nodes, cfg]
         out_ix = np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-1])))
