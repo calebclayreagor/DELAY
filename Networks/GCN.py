@@ -17,8 +17,11 @@ class GCN(nn.Module):
                  graphs: str,
                  cfg: List[int],
                  in_dimensions: int,
+                 top_n: int,
                  ) -> Self:
         super(GCN, self).__init__()
+
+        self.top_n = top_n
 
         # compile list of edge arrays
         graphs = sorted(list(map(str, pathlib.Path(graphs).glob('*.csv'))))
@@ -43,7 +46,7 @@ class GCN(nn.Module):
                 self.edge_index = torch.cat((self.edge_index, graph_i), dim = 1)
 
         # neural network architecture
-        self.embedding = nn.Sequential(nn.Linear(in_dimensions, cfg), nn.ReLU(inplace = True))
+        self.embedding = nn.Sequential(nn.Linear((in_dimensions * top_n), cfg), nn.ReLU(inplace = True))
         self.features = Sequential('x, edge_index',
             [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
              nn.ReLU(inplace = True)])
@@ -53,7 +56,19 @@ class GCN(nn.Module):
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         edge_index = self.edge_index.to(torch.cuda.current_device())
         for i in range(x.size(0)):
-            xi = x[i, ...]                                                           # [nchan, nbins, nbins]  (torch.float32)
+            xi = x[i, ...]                                                           # [nbins] * in_dimensions - 1 (torch.float32)
+            
+            input(xi.size())
+
+            # id = np.indices(xi.size())
+            # id = id.astype(np.float64)
+            # id[0, ...] /= id.shape[1]
+            # id[1:, ...] /= id.shape[-1]
+            # id = torch.tensor(id, dtype = torch.long, device = torch.cuda.current_device())
+            # xi = torch.unsqueeze(xi, 0)         # [1, nchan, nbins, nbins]
+            # xi = torch.cat((xi, id), dim = 0)   # [4, nchan, nbins, nbins]
+
+
             xi = torch.flatten(xi)                                                   # [nchan * nbins * nbins]
             xi = torch.unsqueeze(xi, 0)                                              # [1, nchan * nbins * nbins]
             xi = torch.tile(xi, (self.n_nodes.sum(), 1))                             # [n_nodes, nchan * nbins * nbins]
