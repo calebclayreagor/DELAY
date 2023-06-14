@@ -59,7 +59,7 @@ class GCN(nn.Module):
             xi = x[i, ...]                                                           # [nbins] * (2 + 2 * neighbors) (torch.float32)
             id = np.indices(xi.size())
             id = id.astype(np.float64)
-            id /= id.shape[0]
+            id /= (id.shape[0] + 1)
             id = torch.tensor(id, dtype = xi.dtype, device = torch.cuda.current_device())
 
             input(id)
