@@ -60,9 +60,9 @@ class GCN(nn.Module):
             id = np.indices(xi.size())
             id = id.astype(np.float64)
             id /= id.shape[0]
-            id = torch.tensor(id, dtype = torch.long, device = torch.cuda.current_device())
+            id = torch.tensor(id, dtype = xi.dtype, device = torch.cuda.current_device())
 
-            input(xi)
+            input(id)
 
             # xi = torch.unsqueeze(xi, 0)         # [1, nchan, nbins, nbins]
             # xi = torch.cat((xi, id), dim = 0)   # [4, nchan, nbins, nbins]
