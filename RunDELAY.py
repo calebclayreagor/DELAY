@@ -54,7 +54,7 @@ if __name__ == '__main__':
     parser.add_argument('--auc_motif', dest = 'motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'], help = 'compute AUC for examples in specified motif')
     parser.add_argument('--ablate_genes', dest = 'ablate', action = 'store_true', help = 'mask input matrices for neighbors in specified motif')
     parser.add_argument('--graphs') # path to graphs directory
-    parser.add_argument('--top_n') # top N indices
+    parser.add_argument('--top_n', type = int) # top N indices
     args = parser.parse_args()
 
     # ---------------------------------
