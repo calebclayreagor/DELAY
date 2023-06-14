@@ -48,7 +48,7 @@ class GCN(nn.Module):
         self.features = Sequential('x, edge_index',
             [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
              nn.ReLU(inplace = True)])
-        self.classifier = nn.Sequential(nn.Linear(cfg, cfg), nn.ReLU(inplace = True), nn.Linear(cfg, 1))
+        self.classifier = nn.Linear(cfg, 1)
         self._initialize_weights()
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
