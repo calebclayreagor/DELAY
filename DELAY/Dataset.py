@@ -202,7 +202,7 @@ class Dataset(torch.utils.data.Dataset):
             # compile 4D array containing stacks of 2D joint-probability matrices
             # X_batch_j = np.zeros((ds_batch_j.shape[0], nchannels, self.args.nbins, self.args.nbins))
             X_batch_j = [ None ] * ds_batch_j.shape[0]
-            for i in range(X_batch_j.shape[0]):
+            for i in range(len(X_batch_j)):
                 ds_i = np.squeeze(ds_batch_j[i, ...]).T
                 H, _ = np.histogramdd(ds_i, bins = self.args.nbins)
                 H /= np.sqrt((H.flatten()**2).sum())
