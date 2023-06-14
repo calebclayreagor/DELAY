@@ -56,15 +56,14 @@ class GCN(nn.Module):
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         edge_index = self.edge_index.to(torch.cuda.current_device())
         for i in range(x.size(0)):
-            xi = x[i, ...]                                                           # [nbins] * in_dimensions - 1 (torch.float32)
-            
-            input(xi.size())
+            xi = x[i, ...]                                                           # [nbins] * (2 + 2 * neighbors) (torch.float32)
+            id = np.indices(xi.size())
+            id = id.astype(np.float64)
+            id /= id.shape[0]
+            id = torch.tensor(id, dtype = torch.long, device = torch.cuda.current_device())
 
-            # id = np.indices(xi.size())
-            # id = id.astype(np.float64)
-            # id[0, ...] /= id.shape[1]
-            # id[1:, ...] /= id.shape[-1]
-            # id = torch.tensor(id, dtype = torch.long, device = torch.cuda.current_device())
+            input(id)
+
             # xi = torch.unsqueeze(xi, 0)         # [1, nchan, nbins, nbins]
             # xi = torch.cat((xi, id), dim = 0)   # [4, nchan, nbins, nbins]
 
