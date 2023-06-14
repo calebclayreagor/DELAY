@@ -206,12 +206,7 @@ class Dataset(torch.utils.data.Dataset):
                 ds_i = np.squeeze(ds_batch_j[i, ...]).T
                 H, _ = np.histogramdd(ds_i, bins = self.args.nbins)
                 H /= np.sqrt((H.flatten()**2).sum())
-                H = np.expand_dims(H, 0)
-
-                print(H)
-                input(H.shape)
-
-                X_batch_j[i] = H
+                X_batch_j[i] = np.expand_dims(H, 0)
                 # for pair_idx in range(len(matrix_gpairs)):
 
                     # # pseudotime-aligned joint-probability matrix
@@ -233,6 +228,9 @@ class Dataset(torch.utils.data.Dataset):
                     #         H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
                     #         X_batch_j[i, pair_idx * (1 + self.args.max_lag) + lag, :, :] = H
             X_batch_j = np.concatenate(X_batch_j, 0)
+
+            print(X_batch_j)
+            input(X_batch_j.shape)
 
             # mask specific regions of the joint-probability matrices [optional]
             if self.args.mask_region == 'off-off': 
