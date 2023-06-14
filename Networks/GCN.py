@@ -56,7 +56,7 @@ class GCN(nn.Module):
                 self.x_ind = torch.cat((self.x_ind, x_ind_channel), dim = 0)
 
         # neural network architecture
-        self.embedding = nn.Sequential(nn.Linear((nbins ** 2), cfg), nn.ReLU(inplace = True))
+        self.embedding = nn.Sequential(nn.Linear((nbins ** 2) * 7, cfg), nn.ReLU(inplace = True))
         self.features = Sequential('x, edge_index',
             [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
              nn.ReLU(inplace = True)])
@@ -73,7 +73,8 @@ class GCN(nn.Module):
         x_ind = self.x_ind.to(torch.cuda.current_device())
         for i in range(x.size(0)):
             xi = x[i, ...]                                                               # [nchan, nbins, nbins] (torch.float32)
-            xi = torch.flatten(xi, 1)                                                    # [nchan, nbins * nbins]
+            # xi = torch.flatten(xi, 1)                                                    # [nchan, nbins * nbins]
+            xi = torch.flatten(xi).reshape(1, -1) ##
             xi = xi[x_ind, :]                                                            # [nchan * n_nodes, nbins * nbins]
             if i == 0:
                 x_batch = xi
