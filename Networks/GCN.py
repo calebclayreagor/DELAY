@@ -65,15 +65,9 @@ class GCN(nn.Module):
             xi = torch.cat((xi, id), dim = 0)
             xi = torch.flatten(xi, 1)
             xi_ind = np.argpartition(xi[0, ...].cpu(), -self.top_n)[-self.top_n:]
-            xi = xi[:, xi_ind]
-
-            print(xi)
-            input(xi.size())                                             
-
-
-
-            xi = torch.unsqueeze(xi, 0)                                              # [1, nchan * nbins * nbins]
-            xi = torch.tile(xi, (self.n_nodes.sum(), 1))                             # [n_nodes, nchan * nbins * nbins]
+            xi = torch.flatten(xi[:, xi_ind])                        
+            xi = torch.unsqueeze(xi, 0)
+            xi = torch.tile(xi, (self.n_nodes.sum(), 1))
             if i == 0:
                 x_batch = xi
                 edge_index_batch = edge_index
