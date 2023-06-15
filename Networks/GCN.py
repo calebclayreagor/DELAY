@@ -17,11 +17,8 @@ class GCN(nn.Module):
                  graphs: str,
                  cfg: List[int],
                  in_dimensions: int,
-                 top_n: int,
                  ) -> Self:
         super(GCN, self).__init__()
-
-        self.top_n = top_n
 
         # compile list of edge arrays
         graphs = sorted(list(map(str, pathlib.Path(graphs).glob('*.csv'))))
@@ -29,7 +26,8 @@ class GCN(nn.Module):
         self.n_nodes = np.array([(graph.max() + 1) for graph in graphs])
 
         # find max required n_convs
-        cfg = cfg[0]; self.n_conv = 0
+        cfg = in_dimensions
+        self.n_conv = 0
         for graph in graphs:
             G = nx.MultiDiGraph()
             G.add_edges_from(graph.T)
@@ -46,28 +44,20 @@ class GCN(nn.Module):
                 self.edge_index = torch.cat((self.edge_index, graph_i), dim = 1)
 
         # neural network architecture
-        self.embedding = nn.Sequential(nn.Linear((in_dimensions * top_n), cfg), nn.ReLU(inplace = True))
+        # self.embedding = nn.Sequential(nn.Linear(in_dimensions, cfg), nn.ReLU(inplace = True))
         self.features = Sequential('x, edge_index',
             [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
              nn.ReLU(inplace = True)])
-        self.classifier = nn.Sequential(nn.Linear(cfg, cfg), nn.ReLU(inplace = True), nn.Linear(cfg, 1))
+        self.classifier = nn.Linear(cfg, 1)
         self._initialize_weights()
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         edge_index = self.edge_index.to(torch.cuda.current_device())
         for i in range(x.size(0)):
-            xi = x[i, ...]
-            id = np.indices(xi.size())
-            id = id.astype(np.float64)
-            id /= np.linalg.norm(np.arange(id.shape[0]))
-            id = torch.tensor(id, dtype = xi.dtype, device = torch.cuda.current_device())
-            xi = torch.unsqueeze(xi, 0)
-            xi = torch.cat((xi, id), dim = 0)
-            xi = torch.flatten(xi, 1)
-            xi_ind = torch.topk(xi[0, ...], self.top_n).indices
-            xi = torch.flatten(xi[:, xi_ind])                        
-            xi = torch.unsqueeze(xi, 0)
-            xi = torch.tile(xi, (self.n_nodes.sum(), 1))
+            xi = x[i, ...]                                                           # [nchan, nbins, nbins]  (torch.float32)
+            xi = torch.flatten(xi)                                                   # [nchan * nbins * nbins]
+            xi = torch.unsqueeze(xi, 0)                                              # [1, nchan * nbins * nbins]
+            xi = torch.tile(xi, (self.n_nodes.sum(), 1))                             # [n_nodes, nchan * nbins * nbins]
             if i == 0:
                 x_batch = xi
                 edge_index_batch = edge_index
@@ -75,7 +65,8 @@ class GCN(nn.Module):
                 x_batch = torch.cat((x_batch, xi), dim = 0)
                 edge_index_batch = torch.cat(
                     (edge_index_batch, (self.n_nodes.sum() * i) + edge_index), dim = 1)
-        out = self.embedding(x_batch)
+        # out = self.embedding(x_batch)
+        out = x_batch
         for _ in range(self.n_conv): out = self.features(out, edge_index_batch)
         out = torch.split(out, [self.n_nodes.sum()] * x.size(0))                     # len(batch_size): [n_nodes, cfg]
         out_ix = np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-1])))

@@ -54,7 +54,6 @@ if __name__ == '__main__':
     parser.add_argument('--auc_motif', dest = 'motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'], help = 'compute AUC for examples in specified motif')
     parser.add_argument('--ablate_genes', dest = 'ablate', action = 'store_true', help = 'mask input matrices for neighbors in specified motif')
     parser.add_argument('--graphs') # path to graphs directory
-    parser.add_argument('--top_n', type = int) # top N indices
     args = parser.parse_args()
 
     # ---------------------------------
@@ -119,7 +118,7 @@ if __name__ == '__main__':
     elif args.model_type == 'vgg-cnnc': net = VGG_CNNC(cfg = args.model_cfg, in_channels = 1)
     elif args.model_type == 'siamese-vgg': net = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors, max_lag = args.max_lag)
     elif args.model_type == 'vgg': net = VGG_CNNC(cfg = args.model_cfg, in_channels = nchan)
-    elif args.model_type == 'gcn': net = GCN(graphs = args.graphs, cfg = args.model_cfg, in_dimensions = (3 + 2 * args.neighbors), top_n = args.top_n)
+    elif args.model_type == 'gcn': net = GCN(graphs = args.graphs, cfg = args.model_cfg, in_dimensions = args.nbins * (2 + 2 * args.neighbors))
 
     # ---------------------------------------------------------
     # set up classifier from scratch or pre-trained checkpoint
