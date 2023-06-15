@@ -59,7 +59,7 @@ class GCN(nn.Module):
             xi = x[i, ...]
             id = np.indices(xi.size())
             id = id.astype(np.float64)
-            id /= (id.shape[0] + 1)
+            id /= np.linalg.norm(np.arange(id.shape[0]))
             id = torch.tensor(id, dtype = xi.dtype, device = torch.cuda.current_device())
             xi = torch.unsqueeze(xi, 0)
             xi = torch.cat((xi, id), dim = 0)
