@@ -204,6 +204,7 @@ class Dataset(torch.utils.data.Dataset):
             for i in range(X_batch_j.shape[0]):
                 for ii in range(X_batch_j.shape[1]):
                     H, _ = np.histogram(ds_batch_j[i, ii, ...], bins = self.args.nbins, density = False)
+                    H = H.astype(np.float64)
                     H /= np.sqrt((H ** 2).sum())
                     X_batch_j[i, ii, :] = H
                 # for pair_idx in range(len(matrix_gpairs)):
