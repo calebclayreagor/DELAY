@@ -74,13 +74,18 @@ class GCN(nn.Module):
                             (edge_index_batch, (self.n_nodes.sum() * i) + edge_index), dim = 1)
                         target_ix_batch = torch.cat(
                             (target_ix_batch, (self.n_nodes.sum() * i) + target_ix), dim = 0)    
-            out0 = self.embedding(x_batch)
-            if t > 0:
-                out0[target_ix_batch, :] = out
-            out = out0
+            if t == 0:
+                x_batch = self.embedding(x_batch)
+            else:
+                embed_ix = torch.isin(torch.arange(x_batch.size(0)), target_ix_batch)
+                x_batch_t = torch.zeros(x_batch.size(0), 1, dtype = x_batch.dtype, requires_grad = True,
+                                        device = torch.cuda.current_device())
+                x_batch_t[embed_ix] = self.embedding(x_batch[embed_ix, :])
+                x_batch_t[target_ix_batch] = out
+                x_batch = x_batch_t
             for _ in range(self.n_conv): 
-                out = self.features(out, edge_index_batch)
-            out = torch.split(out, [self.n_nodes.sum()] * x.size(0))               # len(batch_size): [n_nodes, n_genes]
+                x_batch = self.features(x_batch, edge_index_batch)
+            out = torch.split(x_batch, [self.n_nodes.sum()] * x.size(0))           # len(batch_size): [n_nodes, n_genes]
             out = torch.concat([out_i[target_ix, :] for out_i in out], dim = 0)    # [n_graphs * batch_size, n_genes]
         out = self.classifier(out)                                                 # [n_graphs * batch_size, 1]
         out = torch.split(out, [len(self.n_nodes)] * x.size(0))                    # len(batch_size): [n_graphs, 1]
