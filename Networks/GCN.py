@@ -26,7 +26,7 @@ class GCN(nn.Module):
         self.n_nodes = np.array([(graph.max() + 1) for graph in graphs])
 
         # find max required n_convs
-        cfg = in_dimensions
+        cfg = 1
         self.n_conv = 0
         for graph in graphs:
             G = nx.MultiDiGraph()
@@ -44,6 +44,7 @@ class GCN(nn.Module):
                 self.edge_index = torch.cat((self.edge_index, graph_i), dim = 1)
 
         # neural network architecture
+        self.embedding = nn.Sequential(nn.Linear(in_dimensions, cfg), nn.ReLU(inplace = True))
         self.features = Sequential('x, edge_index',
             [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
              nn.ReLU(inplace = True)])
@@ -73,6 +74,7 @@ class GCN(nn.Module):
                             (edge_index_batch, (self.n_nodes.sum() * i) + edge_index), dim = 1)
                         target_ix_batch = torch.cat(
                             (target_ix_batch, (self.n_nodes.sum() * i) + target_ix), dim = 0)    
+            x_batch = self.embedding(x_batch)
             if t > 0:
                 x_batch[target_ix_batch, :] = out
             out = x_batch
