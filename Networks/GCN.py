@@ -55,7 +55,6 @@ class GCN(nn.Module):
         target_ix = np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-1])))
         target_ix = torch.tensor(target_ix, dtype = torch.long)
         target_ix = target_ix.to(device = torch.cuda.current_device())
-        
         # loop over pseudotime
         for t in range(x.size(-1)):
             # loop over mini-batch
@@ -81,14 +80,9 @@ class GCN(nn.Module):
                 out = self.features(out, edge_index_batch)
             out = torch.split(out, [self.n_nodes.sum()] * x.size(0))               # len(batch_size): [n_nodes, n_genes]
             out = torch.concat([out_i[target_ix, :] for out_i in out], dim = 0)    # [n_graphs * batch_size, n_genes]
-
-            input(out)
-
-
-
-        out = self.classifier(out)                                                   # [n_graphs * batch_size, 1]
-        out = torch.split(out, [len(self.n_nodes)] * x.size(0))                      # len(batch_size): [n_graphs, 1]
-        out = torch.concat(out, dim = 1).mean(axis = 0).reshape(-1, 1)               # [batch_size, 1]
+        out = self.classifier(out)                                                 # [n_graphs * batch_size, 1]
+        out = torch.split(out, [len(self.n_nodes)] * x.size(0))                    # len(batch_size): [n_graphs, 1]
+        out = torch.concat(out, dim = 1).mean(axis = 0).reshape(-1, 1)             # [batch_size, 1]
         return out
     
     def _initialize_weights(self: Self) -> None:
