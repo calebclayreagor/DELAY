@@ -48,7 +48,7 @@ class GCN(nn.Module):
         self.features = Sequential('x, edge_index',
             [(GCNConv(cfg, cfg, add_self_loops = False, normalize = False), 'x, edge_index -> x'),
              nn.ReLU(inplace = True)])
-        self.classifier = nn.Linear(cfg, 1)
+        # self.classifier = nn.Linear(cfg, 1)
         self._initialize_weights()
 
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
@@ -77,7 +77,9 @@ class GCN(nn.Module):
             if t == 0:
                 x_batch = self.embedding(x_batch)
             else:
-                embed_ix = torch.isin(torch.arange(x_batch.size(0), device = torch.cuda.current_device()), target_ix_batch)
+                embed_ix = torch.isin(
+                    torch.arange(x_batch.size(0), device = torch.cuda.current_device()), 
+                    target_ix_batch)
                 x_batch_t = torch.zeros(x_batch.size(0), 1, dtype = x_batch.dtype,
                                         device = torch.cuda.current_device())
                 x_batch_t[embed_ix] = self.embedding(x_batch[embed_ix, :])
@@ -87,7 +89,7 @@ class GCN(nn.Module):
                 x_batch = self.features(x_batch, edge_index_batch)
             out = torch.split(x_batch, [self.n_nodes.sum()] * x.size(0))           # len(batch_size): [n_nodes, n_genes]
             out = torch.concat([out_i[target_ix, :] for out_i in out], dim = 0)    # [n_graphs * batch_size, n_genes]
-        out = self.classifier(out)                                                 # [n_graphs * batch_size, 1]
+        # out = self.classifier(out)                                                 # [n_graphs * batch_size, 1]
         out = torch.split(out, [len(self.n_nodes)] * x.size(0))                    # len(batch_size): [n_graphs, 1]
         out = torch.concat(out, dim = 1).mean(axis = 0).reshape(-1, 1)             # [batch_size, 1]
         return out
