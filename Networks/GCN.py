@@ -59,10 +59,7 @@ class GCN(nn.Module):
         for t in range(x.size(-1)):
             # loop over mini-batch
             for i in range(x.size(0)):
-                xi = x[i, :, 0, t]                                                 # [n_genes, 1]  (torch.float32)
-                input(xi.size())
-                xi = torch.flatten(xi)                                             # [n_genes]
-                xi = torch.unsqueeze(xi, 0)                                        # [1, n_genes]
+                xi = torch.unsqueeze(x[i, :, 0, t] , 0)                            # [1, n_genes]
                 xi = torch.tile(xi, (self.n_nodes.sum(), 1))                       # [n_nodes, n_genes]
                 if i == 0:
                     x_batch = xi
@@ -75,8 +72,8 @@ class GCN(nn.Module):
                         edge_index_batch = torch.cat(
                             (edge_index_batch, (self.n_nodes.sum() * i) + edge_index), dim = 1)
                         target_ix_batch = torch.cat(
-                            (target_ix_batch, (self.n_nodes.sum() * i) + target_ix), 
-                        )
+                            (target_ix_batch, (self.n_nodes.sum() * i) + target_ix), dim = 0)
+                input(target_ix_batch)
                     
             if t > 0:
                 x_batch[out_ix, :] = out
