@@ -55,6 +55,7 @@ class GCN(nn.Module):
         target_ix = np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-1])))
         target_ix = torch.tensor(target_ix, dtype = torch.long)
         target_ix = target_ix.to(device = torch.cuda.current_device())
+        
         # loop over pseudotime
         for t in range(x.size(-1)):
             # loop over mini-batch
@@ -72,18 +73,16 @@ class GCN(nn.Module):
                         edge_index_batch = torch.cat(
                             (edge_index_batch, (self.n_nodes.sum() * i) + edge_index), dim = 1)
                         target_ix_batch = torch.cat(
-                            (target_ix_batch, (self.n_nodes.sum() * i) + target_ix), dim = 0)
-                input(target_ix_batch)
-                    
+                            (target_ix_batch, (self.n_nodes.sum() * i) + target_ix), dim = 0)    
             if t > 0:
-                x_batch[out_ix, :] = out
-
+                x_batch[target_ix_batch, :] = out
             out = x_batch
             for _ in range(self.n_conv): 
                 out = self.features(out, edge_index_batch)
             out = torch.split(out, [self.n_nodes.sum()] * x.size(0))               # len(batch_size): [n_nodes, n_genes]
-            
-            out = torch.concat([out_i[out_ix, :] for out_i in out], dim = 0)       # [n_graphs * batch_size, n_genes]
+            out = torch.concat([out_i[target_ix, :] for out_i in out], dim = 0)    # [n_graphs * batch_size, n_genes]
+
+            input(out)
 
 
 
