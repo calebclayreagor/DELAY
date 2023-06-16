@@ -228,8 +228,6 @@ class Dataset(torch.utils.data.Dataset):
                 #             X_batch_j[i, pair_idx * (1 + self.args.max_lag) + lag, :, :] = H
             X_batch_j = np.concatenate(X_batch_j, 0)
 
-            input(X_batch_j.shape)
-
             # # mask specific regions of the joint-probability matrices [optional]
             # if self.args.mask_region == 'off-off': 
             #     X_batch_j[:, :, :(self.args.nbins//2), :(self.args.nbins//2)] = 0.
