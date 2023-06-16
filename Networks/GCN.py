@@ -54,7 +54,7 @@ class GCN(nn.Module):
         edge_index = self.edge_index.to(torch.cuda.current_device())
         target_ix = np.concatenate((np.array([0]), (np.cumsum(self.n_nodes)[:-1])))
         target_ix = torch.tensor(target_ix, dtype = torch.long)
-        target_ix = target_ix.to(device = torch.cude.current_device())
+        target_ix = target_ix.to(device = torch.cuda.current_device())
         # loop over pseudotime
         for t in range(x.size(-1)):
             # loop over mini-batch
