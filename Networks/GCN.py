@@ -77,7 +77,7 @@ class GCN(nn.Module):
             if t == 0:
                 x_batch = self.embedding(x_batch)
             else:
-                embed_ix = torch.isin(torch.arange(x_batch.size(0)), target_ix_batch).to(torch.cuda.current_device())
+                embed_ix = torch.isin(torch.arange(x_batch.size(0), device = torch.cuda.current_device()), target_ix_batch)
                 x_batch_t = torch.zeros(x_batch.size(0), 1, dtype = x_batch.dtype, requires_grad = True,
                                         device = torch.cuda.current_device())
                 x_batch_t[embed_ix] = self.embedding(x_batch[embed_ix, :])
