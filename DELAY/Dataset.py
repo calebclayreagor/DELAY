@@ -200,13 +200,21 @@ class Dataset(torch.utils.data.Dataset):
             msk_batch_j = np.in1d(g_batch_j, gpair_select).reshape(ds_batch_j.shape[0], 1)
 
             # compile 4D array containing stacks of 2D joint-probability matrices
-            X_batch_j = np.zeros((ds_batch_j.shape[0], np.arange(1, (3 + 2 * self.args.neighbors)).sum()))
+            ncov = np.arange(1, (3 + 2 * self.args.neighbors)).sum()
+            X_batch_j = np.zeros((ds_batch_j.shape[0], ncov + (ds_batch_j.shape[1] * self.args.nbins)))
             for i in range(X_batch_j.shape[0]):
                 ds_i = np.squeeze(ds_batch_j[i, ...])
                 cov_i = np.cov(ds_i)
                 cov_triu_ix = np.triu_indices_from(cov_i)
                 cov_i_triu = cov_i[cov_triu_ix[0], cov_triu_ix[1]]
-                X_batch_j[i] = cov_i_triu
+                X_batch_j[i, :ncov] = cov_i_triu
+                input(X_batch_j[i])
+                for ii in range(ds_batch_j.shape[1]):
+                    H, _ = np.histogram(ds_batch_j[i, ii, ...], bins = self.args.nbins, density = False)
+                    H /= np.sqrt((H ** 2).sum())
+                    ii_ix = (ncov + (ii * self.args.nbins))
+                    X_batch_j[i, ii_ix : (ii_ix + self.args.nbins)] = H
+                    input(X_batch_j[i])
             #     H, _ = np.histogramdd(ds_i, bins = self.args.nbins)
             #     H /= np.sqrt((H.flatten()**2).sum())
             #     X_batch_j[i] = np.expand_dims(H, 0)
