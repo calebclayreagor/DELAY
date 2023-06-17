@@ -200,13 +200,15 @@ class Dataset(torch.utils.data.Dataset):
             msk_batch_j = np.in1d(g_batch_j, gpair_select).reshape(ds_batch_j.shape[0], 1)
 
             # compile 4D array containing stacks of 2D joint-probability matrices
-            n_genes = (2 + 2 * self.args.neighbors)
-            X_batch_j = np.zeros((ds_batch_j.shape[0], np.arange(n_genes).sum() - n_genes))
+            X_batch_j = np.zeros((ds_batch_j.shape[0], np.arange(1, (3 + 2 * self.args.neighbors)).sum()))
             for i in range(len(X_batch_j)):
                 ds_i = np.squeeze(ds_batch_j[i, ...])
                 cov_i = np.cov(ds_i)
+                cov_triu_ix = np.triu_indices_from(cov_i)
+                cov_i_triu = cov_i[cov_triu_ix[0], cov_triu_ix[1]]
                 print(cov_i)
-                input(cov_i.shape)
+                print(cov_i_triu)
+                input(cov_i_triu.shape)
                 
             #     H, _ = np.histogramdd(ds_i, bins = self.args.nbins)
             #     H /= np.sqrt((H.flatten()**2).sum())
