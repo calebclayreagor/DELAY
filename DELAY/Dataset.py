@@ -200,9 +200,14 @@ class Dataset(torch.utils.data.Dataset):
             msk_batch_j = np.in1d(g_batch_j, gpair_select).reshape(ds_batch_j.shape[0], 1)
 
             # compile 4D array containing stacks of 2D joint-probability matrices
-            # X_batch_j = [ None ] * ds_batch_j.shape[0]
-            # for i in range(len(X_batch_j)):
-            #     ds_i = np.squeeze(ds_batch_j[i, ...]).T
+            n_genes = (2 + 2 * self.args.neighbors)
+            X_batch_j = np.zeros((ds_batch_j.shape[0], np.arange(n_genes).sum() - n_genes))
+            for i in range(len(X_batch_j)):
+                ds_i = np.squeeze(ds_batch_j[i, ...])
+                cov_i = np.cov(ds_i)
+                print(cov_i)
+                input(cov_i.shape)
+                
             #     H, _ = np.histogramdd(ds_i, bins = self.args.nbins)
             #     H /= np.sqrt((H.flatten()**2).sum())
             #     X_batch_j[i] = np.expand_dims(H, 0)
@@ -227,7 +232,6 @@ class Dataset(torch.utils.data.Dataset):
             #                 H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
             #                 X_batch_j[i, pair_idx * (1 + self.args.max_lag) + lag, :, :] = H
             # X_batch_j = np.concatenate(X_batch_j, 0)
-            X_batch_j = ds_batch_j
 
             # # mask specific regions of the joint-probability matrices [optional]
             # if self.args.mask_region == 'off-off': 
