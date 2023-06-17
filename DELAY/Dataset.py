@@ -204,7 +204,7 @@ class Dataset(torch.utils.data.Dataset):
             X_batch_j = np.zeros((ds_batch_j.shape[0], ncov + (ds_batch_j.shape[1] * self.args.nbins)))
             for i in range(X_batch_j.shape[0]):
                 ds_i = np.squeeze(ds_batch_j[i, ...])
-                cov_i = np.cov(ds_i)
+                cov_i = np.corrcoef(ds_i)
                 cov_triu_ix = np.triu_indices_from(cov_i)
                 cov_i_triu = cov_i[cov_triu_ix[0], cov_triu_ix[1]]
                 X_batch_j[i, :ncov] = cov_i_triu
