@@ -118,7 +118,9 @@ if __name__ == '__main__':
     elif args.model_type == 'vgg-cnnc': net = VGG_CNNC(cfg = args.model_cfg, in_channels = 1)
     elif args.model_type == 'siamese-vgg': net = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors, max_lag = args.max_lag)
     elif args.model_type == 'vgg': net = VGG_CNNC(cfg = args.model_cfg, in_channels = nchan)
-    elif args.model_type == 'gcn': net = GCN(graphs = args.graphs, cfg = args.model_cfg, in_dimensions = np.arange(1, (3 + 2 * args.neighbors)).sum())
+    elif args.model_type == 'gcn': 
+        in_dimensions = (np.arange(1, (3 + 2 * args.neighbors)).sum() + ((2 + 2 * args.neighbors) * args.nbins))
+        net = GCN(graphs = args.graphs, cfg = args.model_cfg, in_dimensions = in_dimensions)
 
     # ---------------------------------------------------------
     # set up classifier from scratch or pre-trained checkpoint
