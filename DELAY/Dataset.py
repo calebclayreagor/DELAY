@@ -208,14 +208,12 @@ class Dataset(torch.utils.data.Dataset):
                 cov_triu_ix = np.triu_indices_from(cov_i)
                 cov_i_triu = cov_i[cov_triu_ix[0], cov_triu_ix[1]]
                 X_batch_j[i, :ncov] = cov_i_triu
-                input(X_batch_j[i])
                 for ii in range(ds_batch_j.shape[1]):
                     H, _ = np.histogram(ds_batch_j[i, ii, ...], bins = self.args.nbins, density = False)
                     H = H.astype(np.float64)
                     H /= np.sqrt((H ** 2).sum())
                     ii_ix = (ncov + (ii * self.args.nbins))
                     X_batch_j[i, ii_ix : (ii_ix + self.args.nbins)] = H
-                    input(X_batch_j[i])
             #     H, _ = np.histogramdd(ds_i, bins = self.args.nbins)
             #     H /= np.sqrt((H.flatten()**2).sum())
             #     X_batch_j[i] = np.expand_dims(H, 0)
