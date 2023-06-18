@@ -159,8 +159,8 @@ class Dataset(torch.utils.data.Dataset):
                 gmasks[g] = np.ones((ds.shape[1],)).astype(bool)
 
         # generate list of tuples containing all possible TF-target gene pairs and highly-correlated neighbor genes (optional)
-        gpairs = [tuple(list(g) + list(gpcorr.loc[g[0], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index)
-                                + list(gpcorr.loc[g[1], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index))
+        gpairs = [tuple(list(g) + list(gpcorr.loc[g[0], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index))
+                                # + list(gpcorr.loc[g[1], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index))
                   for g in itertools.product(sorted(set(g1)), ds.columns)]
         random.seed(1234); random.shuffle(gpairs)
 
@@ -200,20 +200,12 @@ class Dataset(torch.utils.data.Dataset):
             msk_batch_j = np.in1d(g_batch_j, gpair_select).reshape(ds_batch_j.shape[0], 1)
 
             # compile 4D array containing stacks of 2D joint-probability matrices
-            ncov = np.arange(1, (3 + 2 * self.args.neighbors)).sum()
-            X_batch_j = np.zeros((ds_batch_j.shape[0], ncov + (ds_batch_j.shape[1] * self.args.nbins)))
-            for i in range(X_batch_j.shape[0]):
-                ds_i = np.squeeze(ds_batch_j[i, ...])
-                cov_i = np.corrcoef(ds_i)
-                cov_triu_ix = np.triu_indices_from(cov_i)
-                cov_i_triu = cov_i[cov_triu_ix[0], cov_triu_ix[1]]
-                X_batch_j[i, :ncov] = cov_i_triu
-                for ii in range(ds_batch_j.shape[1]):
-                    H, _ = np.histogram(ds_batch_j[i, ii, ...], bins = self.args.nbins, density = False)
-                    H = H.astype(np.float64)
-                    H /= np.sqrt((H ** 2).sum())
-                    ii_ix = (ncov + (ii * self.args.nbins))
-                    X_batch_j[i, ii_ix : (ii_ix + self.args.nbins)] = H
+            X_batch_j = [ None ] * ds_batch_j.shape[0]
+            for i in range(len(X_batch_j)):
+                ds_i = np.squeeze(ds_batch_j[i, ...]).T
+                H, _ = np.histogramdd(ds_i, bins = self.args.nbins)
+                H /= np.sqrt((H.flatten()**2).sum())
+                X_batch_j[i] = np.expand_dims(H, 0)
             #     H, _ = np.histogramdd(ds_i, bins = self.args.nbins)
             #     H /= np.sqrt((H.flatten()**2).sum())
             #     X_batch_j[i] = np.expand_dims(H, 0)
@@ -237,6 +229,7 @@ class Dataset(torch.utils.data.Dataset):
             #                 H, _ = np.histogramdd(ds_gpair_lag, bins = (self.args.nbins, self.args.nbins))
             #                 H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
             #                 X_batch_j[i, pair_idx * (1 + self.args.max_lag) + lag, :, :] = H
+            X_batch_j = np.concatenate(X_batch_j, 0)
 
             # # mask specific regions of the joint-probability matrices [optional]
             # if self.args.mask_region == 'off-off': 
