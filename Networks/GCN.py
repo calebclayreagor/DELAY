@@ -53,7 +53,9 @@ class GCN(nn.Module):
     def forward(self: Self, x: torch.Tensor) -> torch.Tensor:
         edge_index = self.edge_index.to(torch.cuda.current_device())
         for i in range(x.size(0)):
-            xi = torch.unsqueeze(x[i, ...] , 0)
+            xi = x[i, ...]
+            xi = torch.flatten(xi)
+            xi = torch.unsqueeze(xi, 0)
             xi = torch.tile(xi, (self.n_nodes.sum(), 1))
             if i == 0:
                 x_batch = xi
