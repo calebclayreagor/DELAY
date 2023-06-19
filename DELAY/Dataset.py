@@ -191,7 +191,7 @@ class Dataset(torch.utils.data.Dataset):
             if self.args.batch_size is None or j == len(gpairs_batched)-1: nsplit = len(gpairs_batched[j])
             else: nsplit = self.args.batch_size
             gpairs_ds_list = np.array_split(ds.loc[cell_idx, gpairs_list_j].values, nsplit, axis=1)
-            gpairs_ds_list = [x.reshape(1, 2 + self.args.neighbors, 1, cell_idx.size) for x in gpairs_ds_list]
+            gpairs_ds_list = [x.reshape(1, 2 + 2 * self.args.neighbors, 1, cell_idx.size) for x in gpairs_ds_list]
             ds_batch_j = np.concatenate(gpairs_ds_list, axis=0).astype(np.float32)
 
             # compile gene names, regulation labels, and motif masks for gpairs
