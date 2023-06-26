@@ -159,8 +159,8 @@ class Dataset(torch.utils.data.Dataset):
                 gmasks[g] = np.ones((ds.shape[1],)).astype(bool)
 
         # generate list of tuples containing all possible TF-target gene pairs and highly-correlated neighbor genes (optional)
-        gpairs = [tuple(list(g) + list(gpcorr.loc[g[0], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index)
-                                + list(gpcorr.loc[g[1], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index))
+        gpairs = [tuple(list(g) + list(gpcorr.loc[g[0], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index))
+                                # + list(gpcorr.loc[g[1], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index))
                   for g in itertools.product(sorted(set(g1)), ds.columns)]
         random.seed(1234); random.shuffle(gpairs)
 
@@ -170,10 +170,10 @@ class Dataset(torch.utils.data.Dataset):
         else: gpairs_batched = [gpairs]
 
         # indices for generating pairwise joint-probability matrices
-        matrix_gpairs = [[0,1], [0,0], [1,1]]
+        matrix_gpairs = [[0,1]] #, [0,0], [1,1]]
         for i in range(self.args.neighbors):
             matrix_gpairs.append([0, 2 + i])
-            matrix_gpairs.append([1, 2 + self.args.neighbors + i])
+            # matrix_gpairs.append([1, 2 + self.args.neighbors + i])
         nchannels = len(matrix_gpairs) * (1 + self.args.max_lag)
 
         # loop over groups of gpairs to compile mini-batches: X, y, msk, g
@@ -191,7 +191,7 @@ class Dataset(torch.utils.data.Dataset):
             if self.args.batch_size is None or j == len(gpairs_batched)-1: nsplit = len(gpairs_batched[j])
             else: nsplit = self.args.batch_size
             gpairs_ds_list = np.array_split(ds.loc[cell_idx, gpairs_list_j].values, nsplit, axis=1)
-            gpairs_ds_list = [x.reshape(1, 2 + 2 * self.args.neighbors, 1, cell_idx.size) for x in gpairs_ds_list]
+            gpairs_ds_list = [x.reshape(1, 2 + self.args.neighbors, 1, cell_idx.size) for x in gpairs_ds_list]
             ds_batch_j = np.concatenate(gpairs_ds_list, axis=0).astype(np.float32)
 
             # compile gene names, regulation labels, and motif masks for gpairs
