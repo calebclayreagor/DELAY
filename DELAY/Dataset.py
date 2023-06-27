@@ -205,16 +205,9 @@ class Dataset(torch.utils.data.Dataset):
             for i in range(X_batch_j.shape[0]):
                 for pair_idx in range(len(matrix_gpairs)):
 
-                    # pseudotime-aligned joint-probability matrix
+                    # pseudotime-aligned and lagged joint-probability matrices
                     gpair = matrix_gpairs[pair_idx]
                     ds_gpair = np.squeeze(ds_batch_j[i, gpair, :, :]).T
-                    # if 0 in self.args.mask_lags: pass
-                    # else:
-                    #     H, _ = np.histogramdd(ds_gpair, bins = (self.args.nbins, self.args.nbins))
-                    #     H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
-                    #     X_batch_j[i, pair_idx * (1 + self.args.max_lag), :, :] = H
-
-                    # pseudotime-lagged joint-probability matrices
                     for lag in range(-self.args.max_lag, self.args.max_lag + 1):
                         if lag in self.args.mask_lags: pass
                         else:
@@ -229,8 +222,6 @@ class Dataset(torch.utils.data.Dataset):
                             H, _ = np.histogramdd(ds_gpair_lag, bins = (self.args.nbins, self.args.nbins))
                             H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
                             X_batch_j[i, pair_idx * (1 + 2 * self.args.max_lag) + self.args.max_lag + lag, :, :] = H
-
-            input(X_batch_j.sum(axis = (0, 2, 3)))
 
             # mask specific regions of the joint-probability matrices [optional]
             if self.args.mask_region == 'off-off': 
