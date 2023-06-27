@@ -109,7 +109,8 @@ class Dataset(torch.utils.data.Dataset):
 
         # gene pairwise correlations: max absolute cross correlation or max pearson correlation
         if self.args.max_lag > 0: 
-            gpcorr = ds.loc[cell_idx,:].corr(lambda a,b : abs(np.correlate(a[:-self.args.max_lag], b)).max())
+            gpcorr = ds.loc[cell_idx,:].corr(lambda a,b : max([abs(np.correlate(a[:-self.args.max_lag], b)).max(),
+                                                               abs(np.correlate(a, b[:-self.args.max_lag])).max()]))
         else: 
             gpcorr = ds.loc[cell_idx,:].corr(method = 'pearson')
         
@@ -159,8 +160,8 @@ class Dataset(torch.utils.data.Dataset):
                 gmasks[g] = np.ones((ds.shape[1],)).astype(bool)
 
         # generate list of tuples containing all possible TF-target gene pairs and highly-correlated neighbor genes (optional)
-        gpairs = [tuple(list(g) + list(gpcorr.loc[g[0], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index))
-                                # + list(gpcorr.loc[g[1], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index))
+        gpairs = [tuple(list(g) + list(gpcorr.loc[g[0], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index)
+                                + list(gpcorr.loc[g[1], (gpcorr.index.isin(tf)) & (~gpcorr.index.isin(g)) & (gmasks[g])].nlargest(self.args.neighbors).index))
                   for g in itertools.product(sorted(set(g1)), ds.columns)]
         random.seed(1234); random.shuffle(gpairs)
 
@@ -170,11 +171,11 @@ class Dataset(torch.utils.data.Dataset):
         else: gpairs_batched = [gpairs]
 
         # indices for generating pairwise joint-probability matrices
-        matrix_gpairs = [[0,1]] #, [0,0], [1,1]]
+        matrix_gpairs = [[0,1], [0,0], [1,1]]
         for i in range(self.args.neighbors):
             matrix_gpairs.append([0, 2 + i])
-            # matrix_gpairs.append([1, 2 + self.args.neighbors + i])
-        nchannels = len(matrix_gpairs) * (1 + self.args.max_lag)
+            matrix_gpairs.append([1, 2 + self.args.neighbors + i])
+        nchannels = len(matrix_gpairs) * (1 + 2 * self.args.max_lag)
 
         # loop over groups of gpairs to compile mini-batches: X, y, msk, g
         self.X_fn = [None] * len(gpairs_batched)
@@ -191,7 +192,7 @@ class Dataset(torch.utils.data.Dataset):
             if self.args.batch_size is None or j == len(gpairs_batched)-1: nsplit = len(gpairs_batched[j])
             else: nsplit = self.args.batch_size
             gpairs_ds_list = np.array_split(ds.loc[cell_idx, gpairs_list_j].values, nsplit, axis=1)
-            gpairs_ds_list = [x.reshape(1, 2 + self.args.neighbors, 1, cell_idx.size) for x in gpairs_ds_list]
+            gpairs_ds_list = [x.reshape(1, 2 + 2 * self.args.neighbors, 1, cell_idx.size) for x in gpairs_ds_list]
             ds_batch_j = np.concatenate(gpairs_ds_list, axis=0).astype(np.float32)
 
             # compile gene names, regulation labels, and motif masks for gpairs
@@ -207,21 +208,29 @@ class Dataset(torch.utils.data.Dataset):
                     # pseudotime-aligned joint-probability matrix
                     gpair = matrix_gpairs[pair_idx]
                     ds_gpair = np.squeeze(ds_batch_j[i, gpair, :, :]).T
-                    if 0 in self.args.mask_lags: pass
-                    else:
-                        H, _ = np.histogramdd(ds_gpair, bins = (self.args.nbins, self.args.nbins))
-                        H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
-                        X_batch_j[i, pair_idx * (1 + self.args.max_lag), :, :] = H
+                    # if 0 in self.args.mask_lags: pass
+                    # else:
+                    #     H, _ = np.histogramdd(ds_gpair, bins = (self.args.nbins, self.args.nbins))
+                    #     H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
+                    #     X_batch_j[i, pair_idx * (1 + self.args.max_lag), :, :] = H
 
                     # pseudotime-lagged joint-probability matrices
-                    for lag in range(1, self.args.max_lag + 1):
+                    for lag in range(-self.args.max_lag, self.args.max_lag + 1):
                         if lag in self.args.mask_lags: pass
                         else:
-                            ds_gpair_lag = np.concatenate((ds_gpair[:-lag, 0].reshape(-1, 1),
-                                                           ds_gpair[lag:, 1].reshape(-1, 1)), axis=1)
+                            if lag > 0:
+                                ds_gpair_lag = np.concatenate((ds_gpair[:-lag, 0].reshape(-1, 1),
+                                                               ds_gpair[lag:, 1].reshape(-1, 1)), axis=1)
+                            elif lag < 0:
+                                ds_gpair_lag = np.concatenate((ds_gpair[lag:, 0].reshape(-1, 1),
+                                                               ds_gpair[:-lag, 1].reshape(-1, 1)), axis=1)
+                            else: 
+                                ds_gpair_lag = ds_gpair
                             H, _ = np.histogramdd(ds_gpair_lag, bins = (self.args.nbins, self.args.nbins))
                             H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
-                            X_batch_j[i, pair_idx * (1 + self.args.max_lag) + lag, :, :] = H
+                            X_batch_j[i, pair_idx * (1 + 2 * self.args.max_lag) + self.args.max_lag + lag, :, :] = H
+
+            input(X_batch_j.sum(axis = (0, 2, 3)))
 
             # mask specific regions of the joint-probability matrices [optional]
             if self.args.mask_region == 'off-off': 
