@@ -225,7 +225,7 @@ class Dataset(torch.utils.data.Dataset):
                                 ds_gpair_lag = np.concatenate((ds_gpair[lag:, 0].reshape(-1, 1),
                                                                ds_gpair[:-lag, 1].reshape(-1, 1)), axis=1)
                             else: 
-                                ds_gpair_lag = ds_gpair
+                                ds_gpair_lag = ds_gpair.copy()
                             H, _ = np.histogramdd(ds_gpair_lag, bins = (self.args.nbins, self.args.nbins))
                             H /= np.sqrt((H.flatten()**2).sum()) # L2-normalized matrix
                             X_batch_j[i, pair_idx * (1 + 2 * self.args.max_lag) + self.args.max_lag + lag, :, :] = H
