@@ -222,8 +222,8 @@ class Dataset(torch.utils.data.Dataset):
                                 ds_gpair_lag = np.concatenate((ds_gpair[:-lag, 0].reshape(-1, 1),
                                                                ds_gpair[lag:, 1].reshape(-1, 1)), axis=1)
                             elif lag < 0:
-                                ds_gpair_lag = np.concatenate((ds_gpair[lag:, 0].reshape(-1, 1),
-                                                               ds_gpair[:-lag, 1].reshape(-1, 1)), axis=1)
+                                ds_gpair_lag = np.concatenate((ds_gpair[-lag:, 0].reshape(-1, 1),
+                                                               ds_gpair[:lag, 1].reshape(-1, 1)), axis=1)
                             else: 
                                 ds_gpair_lag = ds_gpair
                             H, _ = np.histogramdd(ds_gpair_lag, bins = (self.args.nbins, self.args.nbins))
