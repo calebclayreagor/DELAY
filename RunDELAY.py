@@ -53,7 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--dropout_trajectory', metavar = 'P', dest = 'dropout', type = float, help = 'include additional sequencing dropouts with specified probability')
     parser.add_argument('--auc_motif', dest = 'motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'], help = 'compute AUC for examples in specified motif')
     parser.add_argument('--ablate_genes', dest = 'ablate', action = 'store_true', help = 'mask input matrices for neighbors in specified motif')
-    parser.add_argument('--graphs') # path to graphs directory
+    # parser.add_argument('--graphs') # path to graphs directory
     args = parser.parse_args()
 
     # ---------------------------------
@@ -113,14 +113,12 @@ if __name__ == '__main__':
     # NN backbone with specified model_type and configuration
     # --------------------------------------------------------
     args.model_cfg = [int(x) if x != 'M' else x for x in args.model_cfg]
-    nchan = (3 + 2 * args.neighbors) * (1 + args.max_lag)
+    nchan = (3 + 2 * args.neighbors) * (1 + 2 * args.max_lag)
     if args.model_type == 'inverted-vgg': net = VGG(cfg = args.model_cfg, in_channels = nchan)
     elif args.model_type == 'vgg-cnnc': net = VGG_CNNC(cfg = args.model_cfg, in_channels = 1)
     elif args.model_type == 'siamese-vgg': net = SiameseVGG(cfg = args.model_cfg, neighbors = args.neighbors, max_lag = args.max_lag)
     elif args.model_type == 'vgg': net = VGG_CNNC(cfg = args.model_cfg, in_channels = nchan)
-    elif args.model_type == 'gcn':
-        nchan_gcn = (1 + args.neighbors) * (1 + args.max_lag)
-        net = GCN(graphs = args.graphs, cfg = args.model_cfg, in_dimensions = nchan_gcn * (args.nbins ** 2))
+    # elif args.model_type == 'gcn': net = GCN(graphs = args.graphs, cfg = args.model_cfg, in_dimensions = nchan * (args.nbins ** 2))
 
     # ---------------------------------------------------------
     # set up classifier from scratch or pre-trained checkpoint
