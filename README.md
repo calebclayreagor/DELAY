@@ -18,8 +18,6 @@
 git clone https://github.com/calebclayreagor/DELAY.git
 ```
 
-4. Download the pre-trained model weights for DELAY from Zenodo: https://doi.org/10.5281/zenodo.7474115
-
 ---
 
 # Two Steps to Infer Gene-Regulatory Networks
@@ -27,21 +25,22 @@ git clone https://github.com/calebclayreagor/DELAY.git
 ### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq experiments:
 
 ```
-python RunDELAY.py [datadir] [outdir] -p -m [.../trainedModel-1.ckpt] -ft -k [val_fold]
+python RunDELAY.py [datadir] [outdir] -k [val_fold] -p -ft
 ```
 
-- ``datadir``/``outdir`` are the data/output directories, ``-m`` is the pre-trained model, and ``-k`` is the validation fold
+- ``datadir``/``outdir`` are the data/output directories and ``-k`` is the validation fold
 - Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory
 - By default, DELAY will save the best model weights to a checkpoint file in ``RESULTS/outdir``
 
 ### 2. Predict gene regulation across all TF-target gene pairs using the fine-tuned model:
 
 ```
-python RunDELAY.py [datadir] [outdir] -p -m [.../finetunedModel-1.ckpt] -g 1 -bs 1024
+python RunDELAY.py [datadir] [outdir] -m [.../BEST_WEIGHTS.ckpt] -g 1 -bs 1024 -p
 ```
 
+- ``-m`` is the path to the checkpoint file in ``RESULTS/outdir`` from fine-tuning DELAY (Step 1)
 - DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir`` named ``regPredictions.csv``
-- By default, DELAY will load batches from existing directories, so make sure to delete created folders for ``training``, ``validation`` and ``prediction`` batches when finished
+- By default, DELAY will load batches from existing directories, so make sure to delete created folders for all ``training``, ``validation`` and ``prediction`` batches when finished
 
 For additional help, run ``python RunDELAY.py --help``
 
