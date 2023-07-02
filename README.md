@@ -25,7 +25,7 @@ git clone https://github.com/calebclayreagor/DELAY.git
 ### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq experiments:
 
 ```
-python RunDELAY.py [datadir] [outdir] -k [val_fold] -p -ft
+python RunDELAY.py [datadir] [outdir] -p -ft -k [val_fold]
 ```
 
 - ``datadir``/``outdir`` are the data/output directories and ``-k`` is the validation fold
@@ -35,7 +35,7 @@ python RunDELAY.py [datadir] [outdir] -k [val_fold] -p -ft
 ### 2. Predict gene regulation across all TF-target gene pairs using the fine-tuned model:
 
 ```
-python RunDELAY.py [datadir] [outdir] -m [.../BEST_WEIGHTS.ckpt] -g 1 -bs 1024 -p
+python RunDELAY.py [datadir] [outdir] -p -m [.../BEST_WEIGHTS.ckpt] -g 1 -bs 1024
 ```
 
 - ``-m`` is the path to the checkpoint file in ``RESULTS/outdir`` from fine-tuning DELAY (Step 1)
