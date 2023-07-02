@@ -38,7 +38,7 @@ python RunDELAY.py [datadir] [outdir] -k [val_fold] -p -ft
 python RunDELAY.py [datadir] [outdir] -m [.../BEST_WEIGHTS.ckpt] -p -g 1 -bs 1024
 ```
 
-- ``-m`` is the path to the checkpoint file in ``RESULTS/outdir`` from fine-tuning DELAY (Step 1)
+- Use ``-m`` to load the checkpoint file from ``RESULTS/outdir`` saved during fine-tuning (Step 1)
 - DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir`` named ``regPredictions.csv``
 - By default, DELAY will load batches from existing directories, so make sure to delete created folders for all ``training``, ``validation`` and ``prediction`` batches when finished
 
