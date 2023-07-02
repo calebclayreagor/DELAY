@@ -27,7 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('outdir', help = 'relative path for logged results/hyperparameters and saved model checkpoints')
     parser.add_argument('-p', '--predict', action = 'store_true', help = 'predict gene-regulation probabilities using pre-trained model')
     parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'fine-tune model with partially-known ground truths (e.g. from ChIP-seq)')
-    parser.add_argument('-m', '--model', metavar = 'CKPT_FILE', help = 'full path to saved checkpoint file with pre-trained model weights')
+    parser.add_argument('-m', '--model', metavar = 'CKPT_FILE', default = 'Checkpoints/Reagor-2023/trainedModel-1.ckpt', help = 'path to saved checkpoint file with pre-trained model weights')
     parser.add_argument('-k', '--val_fold', metavar = 'K', dest = 'valsplit', type = int, help = 'data fold/split to hold out for validation (optional)')
     parser.add_argument('-bs', '--batch_size', metavar = 'BS', type = int, default = 32, help = 'number of TF-target examples per mini-batch')
     parser.add_argument('-d', '--dimensions', metavar = 'D', dest = 'nbins', type = int, default = 32, help = 'number of gene-expression levels used to bin data for input matrices')
@@ -118,7 +118,9 @@ if __name__ == '__main__':
     # set up classifier from scratch or pre-trained checkpoint
     # ---------------------------------------------------------
     if args.train == True: model = Classifier(args, net, valnames, prefix)
-    else: model = Classifier.load_from_checkpoint(args.model, hparams = args, backbone = net, valnames = valnames, prefix = prefix)
+    else:
+        print(f'Loading pre-trained model weights from {args.model}...')
+        model = Classifier.load_from_checkpoint(args.model, hparams = args, backbone = net, valnames = valnames, prefix = prefix)
 
     # --------------------------------------------------
     # set up callback and trainer for pytorch_lightning
