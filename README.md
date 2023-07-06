@@ -72,6 +72,6 @@ python RunDELAY.py [datadir] [outdir] --train -k [val_fold] \
          --model_type vgg -cfg 32 32 M 64 64 M 128 128 M
 ```
 
-### Read the paper: https://doi.org/10.1093/pnasnexus/pgad113
+### Read the peer-reviewed paper: https://doi.org/10.1093/pnasnexus/pgad113
 
 [^1]: Example data taken from [Hayashi et al., *Nature Communications* (2018)](https://doi.org/10.1038/s41467-018-02866-0)
