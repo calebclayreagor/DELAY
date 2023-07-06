@@ -35,7 +35,7 @@ python RunDELAY.py [datadir] [outdir] -k [val_fold] [--atac] -p -ft
 ### 2. Predict gene regulation across all TF-target gene pairs using the fine-tuned model:
 
 ```
-python RunDELAY.py [datadir] [outdir] -m [.../BEST_WEIGHTS.ckpt] -p -g 1 -bs 1024
+python RunDELAY.py [datadir] [outdir] -m [RESULTS/outdir/BEST_WEIGHTS.ckpt] -p -g 1 -bs 1024
 ```
 
 - DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir`` named ``regPredictions.csv``
