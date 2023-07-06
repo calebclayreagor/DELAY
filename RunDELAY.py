@@ -37,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--training_epochs', metavar = 'E', type = int, default = 200)
     parser.add_argument('-w', '--workers', metavar = 'W', type = int, default = os.cpu_count(), help = 'number of sub-processes for mini-batch loading')
     parser.add_argument('-g', '--gpus', metavar = 'G', type = int, default = -1, help = 'number of GPUs for distributed training')
-    parser.add_argument('--atac', metavar = 'ATAC', action = 'store_true', help = 'use scATAC-seq model for fine-tuning')
+    parser.add_argument('--atac', action = 'store_true', help = 'use scATAC-seq model for fine-tuning')
     parser.add_argument('--train', action = 'store_true', help = 'train new model from scratch')
     parser.add_argument('--test', action = 'store_true', help = 'test pre-trained model on augmented data/inputs')
     parser.add_argument('-cfg', '--model_config', metavar = 'LAYER', dest = 'model_cfg', nargs = '*', default = ['1024', 'M', '512', 'M', '256', 'M', '128', 'M', '64'], 
