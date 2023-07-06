@@ -25,9 +25,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog = 'DELAY', description = 'DELAY: DEpicting pseudotime-LAgged causalitY across single-cell trajectories for accurate gene-regulatory inference')
     parser.add_argument('datadir', help = 'full path to directory with >=1 sub-directory with required input files')
     parser.add_argument('outdir', help = 'relative path for logged results/hyperparameters and saved model checkpoints')
-    parser.add_argument('-p', '--predict', action = 'store_true', help = 'predict gene-regulation probabilities using pre-trained model')
-    parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'fine-tune model with partially-known ground truths (e.g. from ChIP-seq)')
-    parser.add_argument('-m', '--model', metavar = 'CKPT_FILE', default = 'Checkpoints/Reagor-2023/trainedModel-1.ckpt', help = 'path to saved checkpoint file with pre-trained model weights')
+    parser.add_argument('-p', '--predict', action = 'store_true', help = 'predict gene-regulation probabilities using a pre-trained model')
+    parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'fine-tune a model with partially-known ground truths (e.g. from ChIP-seq)')
+    parser.add_argument('-m', '--model', metavar = 'CKPT_FILE', help = 'path to saved checkpoint file with pre-trained model weights')
     parser.add_argument('-k', '--val_fold', metavar = 'K', dest = 'valsplit', type = int, help = 'data fold/split to hold out for validation (optional)')
     parser.add_argument('-bs', '--batch_size', metavar = 'BS', type = int, default = 32, help = 'number of TF-target examples per mini-batch')
     parser.add_argument('-d', '--dimensions', metavar = 'D', dest = 'nbins', type = int, default = 32, help = 'number of gene-expression levels used to bin data for input matrices')
@@ -37,6 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--training_epochs', metavar = 'E', type = int, default = 200)
     parser.add_argument('-w', '--workers', metavar = 'W', type = int, default = os.cpu_count(), help = 'number of sub-processes for mini-batch loading')
     parser.add_argument('-g', '--gpus', metavar = 'G', type = int, default = -1, help = 'number of GPUs for distributed training')
+    parser.add_argument('--atac', metavar = 'ATAC', action = 'store_true', help = 'use scATAC-seq model for fine-tuning')
     parser.add_argument('--train', action = 'store_true', help = 'train new model from scratch')
     parser.add_argument('--test', action = 'store_true', help = 'test pre-trained model on augmented data/inputs')
     parser.add_argument('-cfg', '--model_config', metavar = 'LAYER', dest = 'model_cfg', nargs = '*', default = ['1024', 'M', '512', 'M', '256', 'M', '128', 'M', '64'], 
@@ -44,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_type', choices = ['inverted-vgg', 'vgg-cnnc', 'siamese-vgg', 'vgg'], default = 'inverted-vgg')
     parser.add_argument('--mask_lags', metavar =  'LG', type = int, nargs = '*',  default = [], help = 'mask inputs at specified lags')
     parser.add_argument('--mask_region', choices = ['off-off', 'on-off', 'off-on', 'on-on', 'on'], help = 'mask regions of input matrices')
-    parser.add_argument('--shuffle_trajectory', metavar = 'FRAC', dest = 'shuffle', type = float, help = 'shuffle cells in local windows across trajectory')
+    parser.add_argument('--shuffle_trajectory', metavar = 'FRAC', dest = 'shuffle', type = float, help = 'shuffle cells in local windows across pseudotime trajectory')
     parser.add_argument('--ncells_trajectory', metavar = 'N', dest = 'ncells', type = int, help = 'randomly sample cells from trajectory')
     parser.add_argument('--dropout_trajectory', metavar = 'P', dest = 'dropout', type = float, help = 'include additional sequencing dropouts with specified probability')
     parser.add_argument('--auc_motif', dest = 'motif', choices = ['ffl-reg', 'ffl-tgt', 'ffl-trans', 'fbl-trans', 'mi-simple'], help = 'compute AUC for examples in specified motif')
@@ -119,6 +120,10 @@ if __name__ == '__main__':
     # ---------------------------------------------------------
     if args.train == True: model = Classifier(args, net, valnames, prefix)
     else:
+        if args.model is None:
+            if args.atac == True: 
+                args.model = 'Checkpoints/Mannens-2023/trainedModel-ATAC-1.ckpt'
+            else: args.model = 'Checkpoints/Reagor-2023/trainedModel-1.ckpt'
         print(f'Loading pre-trained model weights from {args.model}...')
         model = Classifier.load_from_checkpoint(args.model, hparams = args, backbone = net, valnames = valnames, prefix = prefix)
 
