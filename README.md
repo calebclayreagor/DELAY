@@ -25,10 +25,10 @@ git clone https://github.com/calebclayreagor/DELAY.git
 ### 1. Fine-tune DELAY on datasets with partially-known ground-truth interactions, e.g. from ChIP-seq experiments:
 
 ```
-python RunDELAY.py [datadir] [outdir] -k [val_fold] -p -ft
+python RunDELAY.py [datadir] [outdir] -k [val_fold] [--atac] -p -ft
 ```
 
-- ``datadir`` is the data directory, ``outdir`` is the output directory, and ``-k`` is the validation fold
+- ``-k`` is the validation fold, and ``--atac`` optionally specifies scATAC-seq data (default = scRNA-seq)
 - Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory
 - By default, DELAY will save the best model weights to a checkpoint file in ``RESULTS/outdir``
 
