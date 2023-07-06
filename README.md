@@ -28,7 +28,7 @@ git clone https://github.com/calebclayreagor/DELAY.git
 python RunDELAY.py [datadir] [outdir] -k [val_fold] [--atac] -p -ft
 ```
 
-- ``-k`` is the validation fold, and ``--atac`` optionally specifies scATAC-seq data (default = scRNA-seq)
+- ``-k`` is the validation fold and ``--atac`` specifies scATAC-seq data (OPTIONAL; default = scRNA-seq)
 - Use TensorBoard to monitor training by runnning ``tensorboard --logdir RESULTS`` from the main directory
 - By default, DELAY will save the best model weights to a checkpoint file in ``RESULTS/outdir``
 
@@ -72,6 +72,6 @@ python RunDELAY.py [datadir] [outdir] --train -k [val_fold] \
          --model_type vgg -cfg 32 32 M 64 64 M 128 128 M
 ```
 
-### Read the preprint: https://www.biorxiv.org/content/10.1101/2022.04.25.489377v2
+### Read the paper: https://doi.org/10.1093/pnasnexus/pgad113
 
 [^1]: Example data taken from [Hayashi et al., *Nature Communications* (2018)](https://doi.org/10.1038/s41467-018-02866-0)
