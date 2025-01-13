@@ -45,7 +45,8 @@ class Classifier(pl.LightningModule):
 
     def training_step(self: Self,
                       train_batch: Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]],
-                      batch_idx: int
+                      batch_idx: int,
+                      dataloader_idx = 0
                       ) -> torch.Tensor:
         X, y, _, _ = train_batch
         out = self.forward(X)
@@ -56,9 +57,11 @@ class Classifier(pl.LightningModule):
     def validation_step(self: Self,
                         val_batch: Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]],
                         batch_idx: int,
-                        dataset_idx: int = 0
+                        dataset_idx: int = 0,
+                        dataloader_idx = 0
                         ) -> None:
         X, y, _, _ = val_batch
+        y = y.type(torch.int)
         out = self.forward(X)
         pred = torch.sigmoid(out)
 
