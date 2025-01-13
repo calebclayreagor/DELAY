@@ -36,7 +36,9 @@ if __name__ == '__main__':
     parser.add_argument('-lr', '--learning_rate', metavar = 'LR', type = float, default = .1)
     parser.add_argument('-e', '--training_epochs', metavar = 'E', type = int, default = 200)
     parser.add_argument('-w', '--workers', metavar = 'W', type = int, default = os.cpu_count(), help = 'number of sub-processes for mini-batch loading')
-    parser.add_argument('-g', '--gpus', metavar = 'G', type = int, default = -1, help = 'number of GPUs for distributed training')
+    parser.add_argument('-ac', '--accelerator', metavar = 'AC', type = str, default = 'auto', help = 'accelerator for training, (e.g. gpu)')
+    parser.add_argument('-dv', '--devices', metavar = 'DV', default = 'auto', help = 'devices for training (see lightning Trainer)')
+    # parser.add_argument('-g', '--gpus', metavar = 'G', type = int, default = -1, help = 'number of GPUs for distributed training')
     parser.add_argument('--atac', action = 'store_true', help = 'use scATAC-seq model for fine-tuning')
     parser.add_argument('--train', action = 'store_true', help = 'train new model from scratch')
     parser.add_argument('--test', action = 'store_true', help = 'test pre-trained model on augmented data/inputs')
@@ -135,7 +137,8 @@ if __name__ == '__main__':
         else: monitor, mode, fn = 'train_loss', 'min', 'BEST_WEIGHTS_{train_loss:.3f}_{epoch}'
         callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'RESULTS/{args.outdir}/')
 
-    trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 
+    trainer = pl.Trainer(#strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 
+                         accelerator = args.accelerator, devices = args.devices,
                          max_epochs = args.training_epochs, num_sanity_val_steps = 0, log_every_n_steps = loss_freq,
                          deterministic = 'warn', callbacks = callback, logger = TensorBoardLogger('RESULTS', name = args.outdir))
 
