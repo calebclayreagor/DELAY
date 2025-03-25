@@ -133,20 +133,28 @@ class Classifier(pl.LightningModule):
         self.log(f'_{self.prefix}avg_auc', (avg_auprc + avg_auroc)/2, sync_dist = True, add_dataloader_idx = False)
 
     def on_predict_end(self: Self) -> None:
-        """Compile and save final matrix of gene-regulatory predictions from mini-batches"""
-        ds_dir = f'{self.hparams.datadir}'
-        tf_fn = glob.glob(f'{ds_dir}*/TranscriptionFactors.csv')[0]
-        ds_fn = glob.glob(f'{ds_dir}*/NormalizedData.csv')[0]
-        g1 = np.char.lower(np.loadtxt(tf_fn, delimiter = ',', dtype = str))
-        g2 = pd.read_csv(ds_fn, index_col = 0).index.str.lower().values
-        pred_mat = pd.DataFrame(0., index = g1, columns = g2)
-        pred_fn = list(map(str, sorted(Path(ds_dir).glob(f'*/prediction/pred_*.npy'))))
-        g_fn = list(map(str, sorted(Path(ds_dir).glob(f'*/prediction/g_*.npy'))))
-        for j in range(len(pred_fn)):
-            pred_j = np.load(pred_fn[j]).reshape(-1)
-            g_j = np.load(g_fn[j]).reshape(-1)
-            g_j = np.stack(np.char.split(g_j, ' '), axis = 0)
-            ii = np.where(g_j[:, 0][:, None] == g1[None, :])[1]
-            jj = np.where(g_j[:, 1][:, None] == g2[None, :])[1]
-            pred_mat.values[ii, jj] = pred_j
-        pred_mat.to_csv(f'RESULTS/{self.hparams.outdir}/regPredictions.csv')
+        """Compile and save final gene-regulatory predictions from mini-batches"""
+        ds_dir = glob.glob(f'{self.hparams.datadir}*')
+        for i in range(len(ds_dir)):
+            tf_fn = f'{ds_dir[i]}/TranscriptionFactors.csv'
+            ds_fn = f'{ds_dir[i]}/NormalizedData.csv'
+            g1 = np.char.lower(np.loadtxt(tf_fn, delimiter = ',', dtype = str))
+            g2 = pd.read_csv(ds_fn, index_col = 0).index.str.lower().values
+            pred_mat = pd.DataFrame(0., index = g1, columns = g2)
+            pred_fn = list(map(str, sorted(Path(ds_dir[i]).glob('prediction/pred_*.npy'))))
+            g_fn = list(map(str, sorted(Path(ds_dir[i]).glob('prediction/g_*.npy'))))
+            for j in range(len(pred_fn)):
+                pred_j = np.load(pred_fn[j]).reshape(-1)
+                g_j = np.load(g_fn[j]).reshape(-1)
+                g_j = np.stack(np.char.split(g_j, ' '), axis = 0)
+                ii = np.where(g_j[:, 0][:, None] == g1[None, :])[1]
+                jj = np.where(g_j[:, 1][:, None] == g2[None, :])[1]
+                pred_mat.values[ii, jj] = pred_j
+            pred_mat_rank = pred_mat.rank(axis = 0, ascending = False)
+            pred_grn = ((pred_mat_rank <= self.hparams.top_n) & (pred_mat > .5)).astype(int)
+            pred_grn_hub = pred_grn.sum(axis = 1)
+            pred_grn_hub = pred_grn_hub.sort_values(ascending = False)
+            pred_grn_hub.rename('Outdegree', inplace = True)
+            pred_mat.to_csv(f'{ds_dir[i]}/regPredictions.csv')
+            pred_grn.to_csv(f'{ds_dir[i]}/networkTop{self.hparams.top_n}.csv')
+            pred_grn_hub.to_csv(f'{ds_dir[i]}/hubsTop{self.hparams.top_n}.csv')

@@ -29,6 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'fine-tune a model with partially-known ground truths (e.g. from ChIP-seq)')
     parser.add_argument('-m', '--model', metavar = 'CKPT_FILE', help = 'path to saved checkpoint file with pre-trained model weights')
     parser.add_argument('-k', '--val_fold', metavar = 'K', dest = 'valsplit', type = int, help = 'data fold/split to hold out for validation (optional)')
+    parser.add_argument('-n', '--top_n', metavar = 'N', type = int, default = 20, help = 'number of top regulators used to identify GRN hubs')
     parser.add_argument('-bs', '--batch_size', metavar = 'BS', type = int, default = 32, help = 'number of TF-target examples per mini-batch')
     parser.add_argument('-d', '--dimensions', metavar = 'D', dest = 'nbins', type = int, default = 32, help = 'number of gene-expression levels used to bin data for input matrices')
     parser.add_argument('-nb', '--neighbors', metavar = 'NB', type = int, default = 2, help = 'number of neighbors used for gene pairs in input')
