@@ -29,6 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('-ft', '--finetune', action = 'store_true', help = 'fine-tune a model with partially-known ground truths (e.g. from ChIP-seq)')
     parser.add_argument('-m', '--model', metavar = 'CKPT_FILE', help = 'path to saved checkpoint file with pre-trained model weights')
     parser.add_argument('-k', '--val_fold', metavar = 'K', dest = 'valsplit', type = int, help = 'data fold/split to hold out for validation (optional)')
+    parser.add_argument('-n', '--top_n', metavar = 'N', type = int, default = 20, help = 'number of top regulators used to identify GRN hubs')
     parser.add_argument('-bs', '--batch_size', metavar = 'BS', type = int, default = 32, help = 'number of TF-target examples per mini-batch')
     parser.add_argument('-d', '--dimensions', metavar = 'D', dest = 'nbins', type = int, default = 32, help = 'number of gene-expression levels used to bin data for input matrices')
     parser.add_argument('-nb', '--neighbors', metavar = 'NB', type = int, default = 2, help = 'number of neighbors used for gene pairs in input')
@@ -36,7 +37,8 @@ if __name__ == '__main__':
     parser.add_argument('-lr', '--learning_rate', metavar = 'LR', type = float, default = .1)
     parser.add_argument('-e', '--training_epochs', metavar = 'E', type = int, default = 200)
     parser.add_argument('-w', '--workers', metavar = 'W', type = int, default = os.cpu_count(), help = 'number of sub-processes for mini-batch loading')
-    parser.add_argument('-g', '--gpus', metavar = 'G', type = int, default = -1, help = 'number of GPUs for distributed training')
+    parser.add_argument('-ac', '--accelerator', metavar = 'AC', type = str, default = 'auto', help = 'accelerator for training, (e.g. gpu)')
+    parser.add_argument('-dv', '--devices', metavar = 'DV', default = 'auto', help = 'devices for training (see lightning)')
     parser.add_argument('--atac', action = 'store_true', help = 'use scATAC-seq model for fine-tuning')
     parser.add_argument('--train', action = 'store_true', help = 'train new model from scratch')
     parser.add_argument('--test', action = 'store_true', help = 'test pre-trained model on augmented data/inputs')
@@ -97,13 +99,13 @@ if __name__ == '__main__':
     # --------------------------------
     if len(training) > 0:
         training = ConcatDataset(training)  # training dataloader is also used for prediction
-        train_loader = DataLoader(training, batch_size = None, shuffle = shuffle_train, num_workers = args.workers, pin_memory = True)
+        train_loader = DataLoader(training, batch_size = None, shuffle = shuffle_train, num_workers = args.workers, pin_memory = True, persistent_workers = True)
         loss_freq = int(round(len(train_loader) / 50) + 1)
 
     if len(validation) > 0:
         val_loader = [None] * len(validation)
         for i in range(len(validation)):  # validation dataloader is also used for testing (no fine-tuning)
-            val_loader[i] = DataLoader(validation[i], batch_size = None, num_workers = args.workers, pin_memory = True)
+            val_loader[i] = DataLoader(validation[i], batch_size = None, num_workers = args.workers, pin_memory = True, persistent_workers = True)
 
     # --------------------------------------------------------
     # NN backbone with specified model_type and configuration
@@ -135,9 +137,9 @@ if __name__ == '__main__':
         else: monitor, mode, fn = 'train_loss', 'min', 'BEST_WEIGHTS_{train_loss:.3f}_{epoch}'
         callback = ModelCheckpoint(monitor = monitor, mode = mode, filename = fn, save_top_k = 1, dirpath = f'RESULTS/{args.outdir}/')
 
-    trainer = pl.Trainer(strategy = 'ddp_find_unused_parameters_false', accelerator = 'gpu', devices = args.gpus, auto_select_gpus = True, 
-                         max_epochs = args.training_epochs, num_sanity_val_steps = 0, log_every_n_steps = loss_freq,
-                         deterministic = 'warn', callbacks = callback, logger = TensorBoardLogger('RESULTS', name = args.outdir))
+    trainer = pl.Trainer(accelerator = args.accelerator, devices = args.devices, max_epochs = args.training_epochs, 
+                         num_sanity_val_steps = 0, log_every_n_steps = loss_freq, deterministic = 'warn', 
+                         callbacks = callback, logger = TensorBoardLogger('RESULTS', name = args.outdir))
 
     # -------------------------
     # train model from scratch
