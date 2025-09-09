@@ -6,9 +6,16 @@
 
 # Quick Setup
 
-1. Follow these instructions to install PyTorch for CPU or GPU (recommended): https://pytorch.org
+1. Create a new conda environment (recommended):
 
-2. Navigate to the location where you want to clone the repository and run: 
+```
+conda create -y -n DELAY python=3
+conda activate DELAY
+```
+
+2. Install PyTorch for CPU or GPU (recommended): https://pytorch.org
+
+3. Clone DELAY and satisfy additional dependencies: 
 
 ```
 git clone https://github.com/calebclayreagor/DELAY.git
@@ -33,7 +40,7 @@ python RunDELAY.py [datadir] [outdir] -k [val_fold] [--atac] -p -ft
 ### 2. Predict gene regulation across all TF-target gene pairs using the fine-tuned model:
 
 ```
-python RunDELAY.py [datadir] [outdir] -m [RESULTS/outdir/BEST_WEIGHTS.ckpt] -p -g 1 -bs 1024
+python RunDELAY.py [datadir] [outdir] -m [RESULTS/outdir/BEST_WEIGHTS.ckpt] -p -dv 1 -bs 1024
 ```
 
 - DELAY will save the predicted gene-regulation probabilities as a ``tfs x genes`` matrix in ``outdir`` named ``regPredictions.csv``
