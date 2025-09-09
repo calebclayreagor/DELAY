@@ -1,5 +1,4 @@
-python==3.9
-pytorch==1.13
-pytorch-cuda==11.7
-pytorch-lightning==1.8
-pandas==1.4
+pandas>=1.4,<3.0
+torch>=1.13,<3.0
+lightning>=1.8,<3.0
+tensorboard>=2.0,<3.0
